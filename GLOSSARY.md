@@ -12,6 +12,18 @@ _Avoid_: source pane, current pane
 A string on the Target Pane's visible screen that fits one of yubi's patterns and is a copy candidate.
 _Avoid_: candidate, token, hit
 
+**Pattern**:
+A rule that finds Matches on the Target Pane's visible screen; it is either a Built-in Pattern or a Custom Pattern.
+_Avoid_: regex, rule, matcher
+
+**Built-in Pattern**:
+A Pattern that ships with yubi and can be disabled by name.
+_Avoid_: default pattern
+
+**Custom Pattern**:
+A Pattern the user defines; it takes priority over every Built-in Pattern.
+_Avoid_: user pattern, extra pattern
+
 **Hint**:
 A short label drawn over a Match; typing it copies that Match.
 _Avoid_: tag, key, label
