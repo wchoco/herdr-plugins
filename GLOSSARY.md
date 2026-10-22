@@ -25,3 +25,7 @@ The yubi mode that shows a Hint on each Match.
 
 **Line Mode**:
 The yubi mode that shows a Line Number on each line.
+
+**Joined Copy**:
+A Line Mode copy that joins the selected lines without line breaks, producing a single line.
+_Avoid_: one-line copy, flatten
