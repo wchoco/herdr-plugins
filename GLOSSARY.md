@@ -29,7 +29,7 @@ A short label drawn over a Match; typing it copies that Match.
 _Avoid_: tag, key, label
 
 **Line Number**:
-The number of a line on the Target Pane's visible screen, counted upward from 1 at the last non-blank line.
+The number of a line on the Target Pane's visible screen, counted upward from 1 at the last non-blank line yubi displays.
 _Avoid_: row, index, line hint
 
 **Hint Mode**:
