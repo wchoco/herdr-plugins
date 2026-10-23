@@ -45,6 +45,7 @@ type Machine struct {
 	input   string // Line Mode input typed so far
 	err     string // input error shown next to the input until the next key
 	message string // when set, a message-only state: nothing is selectable
+	info    bool   // message is information, not an error: drawn plain
 
 	pasteFailed bool // message reports a failed paste; stale exits wait for a key
 
@@ -69,12 +70,12 @@ func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
 func newLine(scr screen.Screen, p layout.Placement, set config.Config) *Machine {
 	m := &Machine{w: p.W, h: p.H, scr: scr, set: set, place: p, num: line.NewNumbering(scr, displayedRows(p))}
 	if m.num.Max() == 0 {
-		m.message = "nothing to copy"
+		m.inform("nothing to copy")
 	}
 	return m
 }
 
-// newMessage starts a message-only state.
+// newMessage starts a message-only state showing the error msg.
 func newMessage(msg string, w, h int) *Machine {
 	return &Machine{w: w, h: h, message: msg}
 }
@@ -110,14 +111,18 @@ func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	return newLine(screen.ParseANSI(ansi), p, set)
 }
 
-// Fail switches to a message-only state showing msg.
-func (m *Machine) Fail(msg string) { m.message = msg }
+// Fail switches to a message-only state showing the error msg.
+func (m *Machine) Fail(msg string) { m.message, m.info = msg, false }
+
+// inform switches to a message-only state showing msg, which is not an
+// error.
+func (m *Machine) inform(msg string) { m.message, m.info = msg, true }
 
 // FailPaste reports a Paste Copy whose copy worked but whose paste failed.
 // The report then outlives events and resizes that would otherwise end the
 // session silently: the user must learn the paste did not happen.
 func (m *Machine) FailPaste(err error) {
-	m.message = "copied; paste failed: " + err.Error()
+	m.Fail("copied; paste failed: " + err.Error())
 	m.pasteFailed = true
 }
 
@@ -260,7 +265,11 @@ func (m *Machine) Frame() *render.Grid {
 	}
 	g.Fill(status, 0, m.w, render.Status)
 	text, errText := m.statusText()
-	g.Label(status, 0, text, render.Status)
+	if m.message != "" && !m.info {
+		g.Label(status, 0, text, render.Error)
+	} else {
+		g.Label(status, 0, text, render.Status)
+	}
 	if errText != "" {
 		// The status text is ASCII in Line Mode, so its width is its length.
 		g.Label(status, len(text)+2, errText, render.Error)
