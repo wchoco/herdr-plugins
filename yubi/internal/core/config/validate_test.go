@@ -78,8 +78,17 @@ func TestValidationErrors(t *testing.T) {
 		{"against the default copy", "line.joined = [\"ctrl-m\"]", "config: line.joined[0]: \"ctrl-m\" is also in line.copy"},
 		{"shift letter is the uppercase letter", "[line]\ncopy = [\"shift-y\"]\njoined = [\"shift-y\"]", "config: line.joined[0]: \"shift-y\" is also in line.copy"},
 
+		// copy_command
+		{"clipboard not a table", "clipboard = 1", "config: clipboard: expected table, got integer"},
+		{"unknown clipboard key", "[clipboard]\ncommand = [\"wl-copy\"]", "config: clipboard.command: unknown key"},
+		{"copy_command string form", "clipboard.copy_command = \"wl-copy\"", "config: clipboard.copy_command: expected array, got string"},
+		{"copy_command empty", "clipboard.copy_command = []", "config: clipboard.copy_command: must not be empty"},
+		{"copy_command entry not a string", "clipboard.copy_command = [\"sh\", 1]", "config: clipboard.copy_command[1]: expected string, got integer"},
+		{"copy_command empty program", "clipboard.copy_command = [\"\", \"-c\"]", "config: clipboard.copy_command[0]: required"},
+
 		// first error wins, in schema order: hint before line
 		{"first error wins", "[line]\ncopy = []\n[hint]\nalphabet = \"a\"", "config: hint.alphabet: needs at least 2 letters"},
+		{"line before clipboard", "[clipboard]\ncopy_command = []\n[line]\ncopy = []", "config: line.copy: must not be empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

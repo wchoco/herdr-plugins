@@ -99,10 +99,14 @@ func ui() error {
 		}
 	}
 	cfg.SettingsErr = err
+	var copyCommand []string
+	if cfg.Settings != nil {
+		copyCommand = cfg.Settings.CopyCommand
+	}
 	return session.Run(context.Background(), cfg,
 		session.Deps{
 			Source:    client,
-			Clipboard: herdr.NewOSC52(tty.Writer()),
+			Clipboard: herdr.NewClipboard(copyCommand, tty.Writer()),
 			Terminal:  tty,
 			Events:    client,
 		})
