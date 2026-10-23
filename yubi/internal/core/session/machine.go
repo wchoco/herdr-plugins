@@ -32,6 +32,7 @@ var decode = keys.Decode
 // Machine is the overlay's state machine: key events in, actions out, and
 // the frame for the current state.
 type Machine struct {
+	cfg     Config // the session's ids, for telling stale events apart
 	w, h    int
 	scr     screen.Screen
 	num     line.Numbering
@@ -59,6 +60,12 @@ func newMessage(msg string, w, h int) *Machine {
 
 // start reads the Target Pane and builds the machine for cfg.
 func start(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
+	m := build(ctx, cfg, src, w, h)
+	m.cfg = cfg
+	return m
+}
+
+func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	switch cfg.Mode {
 	case ModeLine, ModeHint:
 	default:
@@ -76,6 +83,25 @@ func start(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 
 // Fail switches to a message-only state showing msg.
 func (m *Machine) Fail(msg string) { m.message = msg }
+
+// Event handles a change in the herdr session. A change that makes the
+// render stale ends the session silently, in every state: yubi never
+// copies from a stale render or lingers as an orphan pane.
+func (m *Machine) Event(ev Event) []Action {
+	if stale(m.cfg, ev) {
+		return []Action{Exit{}}
+	}
+	return nil
+}
+
+// Resize handles the overlay's new size. Any change ends the session
+// silently; yubi does not re-render.
+func (m *Machine) Resize(w, h int) []Action {
+	if w != m.w || h != m.h {
+		return []Action{Exit{}}
+	}
+	return nil
+}
 
 // Key handles one key press.
 func (m *Machine) Key(k keys.Key) []Action {

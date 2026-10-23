@@ -3,7 +3,8 @@
 // through the adapter interfaces defined here.
 //
 // session is core: it does no I/O of its own and never imports the herdr
-// adapter. The adapter implements PaneSource, Clipboard and Terminal.
+// adapter. The adapter implements PaneSource, Clipboard, Terminal and
+// EventStream.
 package session
 
 import (
@@ -40,6 +41,8 @@ type Terminal interface {
 	// Input delivers raw key bytes, one read per value. It is closed when
 	// the input ends.
 	Input() <-chan []byte
+	// Resized signals that the overlay may have changed size (SIGWINCH).
+	Resized() <-chan struct{}
 	// Draw shows a full frame.
 	Draw(frame *render.Grid) error
 }
@@ -56,6 +59,10 @@ const (
 type Config struct {
 	Mode   Mode
 	Target string // Target Pane id
+
+	// The overlay's own pane, tab and workspace ids. Focus moving off any
+	// of them ends the session; an empty id is not checked.
+	Overlay, Tab, Workspace string
 }
 
 // Deps are the adapters a session runs with.
@@ -63,47 +70,80 @@ type Deps struct {
 	Source    PaneSource
 	Clipboard Clipboard
 	Terminal  Terminal
+	Events    EventStream // nil: the session is not watched
 }
 
-// Run runs one overlay session until the user copies, cancels or the input
-// ends. Errors the user should see are shown in the status row instead of
-// being returned; Run returns an error only when it cannot draw at all.
+// Run runs one overlay session until the user copies or cancels, the input
+// ends, or the session goes stale (see Machine.Event and Machine.Resize).
+// Errors the user should see are shown in the status row instead of being
+// returned; Run returns an error only when it cannot draw at all.
 func Run(ctx context.Context, cfg Config, d Deps) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // ends the subscription
 	w, h, err := d.Terminal.Size()
 	if err != nil {
 		return fmt.Errorf("terminal size: %w", err)
 	}
-	m := start(ctx, cfg, d.Source, w, h)
+	// Subscribe before reading, so nothing that happens after the read
+	// is missed.
+	var events <-chan Event
+	var m *Machine
+	if d.Events != nil {
+		if events, err = d.Events.Subscribe(ctx); err != nil {
+			m = newMessage("cannot watch session: "+err.Error(), w, h)
+			m.cfg = cfg
+		}
+	}
+	if m == nil {
+		m = start(ctx, cfg, d.Source, w, h)
+	}
 	if err := d.Terminal.Draw(m.Frame()); err != nil {
 		return err
 	}
+	redraw := false
+	// apply carries out actions; it reports whether the session is over.
+	apply := func(actions []Action) bool {
+		for _, a := range actions {
+			switch a := a.(type) {
+			case Copy:
+				err := d.Clipboard.Copy(a.Text)
+				if err == nil {
+					return true
+				}
+				m.Fail("copy failed: " + err.Error())
+				redraw = true
+			case Exit:
+				return true
+			case Redraw:
+				redraw = true
+			}
+		}
+		return false
+	}
 	for {
-		var b []byte
-		var ok bool
+		redraw = false
 		select {
 		case <-ctx.Done():
 			return nil
-		case b, ok = <-d.Terminal.Input():
-		}
-		if !ok {
-			return nil
-		}
-		redraw := false
-		for _, k := range decode(b) {
-			for _, a := range m.Key(k) {
-				switch a := a.(type) {
-				case Copy:
-					if err := d.Clipboard.Copy(a.Text); err != nil {
-						m.Fail("copy failed: " + err.Error())
-					} else {
-						return nil
-					}
-					redraw = true
-				case Exit:
+		case b, ok := <-d.Terminal.Input():
+			if !ok {
+				return nil
+			}
+			for _, k := range decode(b) {
+				if apply(m.Key(k)) {
 					return nil
-				case Redraw:
-					redraw = true
 				}
+			}
+		case ev, ok := <-events:
+			// Without the subscription yubi cannot tell whether its
+			// render is stale, so its end ends the session too.
+			if !ok || apply(m.Event(ev)) {
+				return nil
+			}
+		case <-d.Terminal.Resized():
+			w, h, err := d.Terminal.Size()
+			if err != nil || apply(m.Resize(w, h)) {
+				return nil
 			}
 		}
 		if redraw {
