@@ -25,6 +25,8 @@ const (
 	HintTyped              // the typed prefix of a Hint: faint black on yellow
 	Match                  // Target Pane text in a Match: original style plus underline
 	Dim                    // Target Pane text outside Matches: original style plus faint
+	Selected               // Target Pane text in a Line Mode selection: reverse video over its original style
+	Error                  // error text in the status row: bold red, reverse video
 )
 
 // sgr is the fixed style of each yubi role; Text keeps the cell's original SGR.
@@ -33,12 +35,14 @@ var sgr = map[Role]string{
 	Status:     "7",
 	Hint:       "1;30;43",
 	HintTyped:  "2;30;43",
+	Error:      "7;1;31",
 }
 
 // overSGR is added to the original SGR of cells in roles that keep it.
 var overSGR = map[Role]string{
-	Match: "4",
-	Dim:   "2",
+	Match:    "4",
+	Dim:      "2",
+	Selected: "7",
 }
 
 // letter is the role's letter in a Dump style map. Text cells are '.' in
@@ -50,6 +54,8 @@ var letter = map[Role]byte{
 	HintTyped:  'p',
 	Match:      'u',
 	Dim:        'd',
+	Selected:   'r',
+	Error:      'e',
 }
 
 // Cell is one terminal cell.
@@ -126,6 +132,21 @@ func (g *Grid) Restyle(y, x, n int, role Role) {
 		c := &g.cells[y][i]
 		if _, keeps := overSGR[c.Role]; keeps || c.Role == Text {
 			c.Role = role
+		}
+	}
+}
+
+// Select shows row y as selected: every Target Pane text cell, blanks up to
+// the right edge included, is drawn in reverse video over its original
+// style. Cells in other roles, such as a Line Number label, are left as
+// they are.
+func (g *Grid) Select(y int) {
+	if y < 0 || y >= g.H {
+		return
+	}
+	for x := range g.cells[y] {
+		if c := &g.cells[y][x]; c.Role == Text {
+			c.Role = Selected
 		}
 	}
 }
