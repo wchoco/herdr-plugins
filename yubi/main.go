@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/config"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/session"
 	"github.com/wchoco/herdr-plugins/yubi/internal/herdr"
@@ -80,16 +81,25 @@ func ui() error {
 	}
 	defer tty.Close()
 	client := herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH"))
-	return session.Run(context.Background(),
-		session.Config{
-			Mode:   session.Mode(os.Getenv("YUBI_MODE")),
-			Target: os.Getenv("YUBI_TARGET_PANE"),
-			// herdr sets these to the overlay's own pane, tab and workspace.
-			Overlay:   os.Getenv("HERDR_PANE_ID"),
-			Tab:       os.Getenv("HERDR_TAB_ID"),
-			Workspace: os.Getenv("HERDR_WORKSPACE_ID"),
-			Layout:    uiLayout(),
-		},
+	cfg := session.Config{
+		Mode:   session.Mode(os.Getenv("YUBI_MODE")),
+		Target: os.Getenv("YUBI_TARGET_PANE"),
+		// herdr sets these to the overlay's own pane, tab and workspace.
+		Overlay:   os.Getenv("HERDR_PANE_ID"),
+		Tab:       os.Getenv("HERDR_TAB_ID"),
+		Workspace: os.Getenv("HERDR_WORKSPACE_ID"),
+		Layout:    uiLayout(),
+	}
+	// Read fresh on every launch: no reload step.
+	data, err := herdr.ReadConfig(os.Getenv("HERDR_PLUGIN_CONFIG_DIR"))
+	if err == nil {
+		var settings config.Config
+		if settings, err = config.Parse(data); err == nil {
+			cfg.Settings = &settings
+		}
+	}
+	cfg.SettingsErr = err
+	return session.Run(context.Background(), cfg,
 		session.Deps{
 			Source:    client,
 			Clipboard: herdr.NewOSC52(tty.Writer()),

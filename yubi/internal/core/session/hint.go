@@ -3,6 +3,7 @@ package session
 import (
 	"strings"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/config"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/hint"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
@@ -21,7 +22,7 @@ type hintState struct {
 // NewHint starts Hint Mode on scr in a w x h overlay. Only the rows above
 // the status row are displayed, so only they get Hints.
 func NewHint(scr screen.Screen, w, h int) *Machine {
-	return NewHintAt(scr, layout.Place(nil, w, h))
+	return newHint(scr, layout.Place(nil, w, h), config.Default())
 }
 
 // NewHintAt starts Hint Mode on scr with the Target Pane and the other
@@ -29,19 +30,23 @@ func NewHint(scr screen.Screen, w, h int) *Machine {
 // found on whole rows, so a Match clipped on the right still copies its
 // full text.
 func NewHintAt(scr screen.Screen, p layout.Placement) *Machine {
-	m := &Machine{w: p.W, h: p.H, scr: scr, place: p}
+	return newHint(scr, p, config.Default())
+}
+
+func newHint(scr screen.Screen, p layout.Placement, set config.Config) *Machine {
+	m := &Machine{w: p.W, h: p.H, scr: scr, set: set, place: p}
 	n := displayedRows(p)
 	displayed := scr.Rows[:max(min(n, len(scr.Rows)), 0)]
 	if line.NewNumbering(scr, n).Max() == 0 {
 		m.message = "nothing to copy"
 		return m
 	}
-	ms := hint.Find(displayed, hint.Builtins())
+	ms := hint.Find(displayed, set.Patterns)
 	if len(ms) == 0 {
 		m.message = "no matches"
 		return m
 	}
-	m.hint = &hintState{matches: ms, hints: hint.Assign(ms, hint.DefaultAlphabet)}
+	m.hint = &hintState{matches: ms, hints: hint.Assign(ms, set.Alphabet)}
 	return m
 }
 
