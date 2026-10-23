@@ -49,6 +49,17 @@ Each `ndjson/<name>.ndjson` holds one request line and herdr's response line, re
 python3 yubi/testdata/herdr-0.9.5/scripts/capture-ndjson.py <pane-id>
 ```
 
+### Event captures: `ndjson/events-*`
+
+Each `ndjson/events-<scenario>.ndjson` holds yubi's `events.subscribe` request line, herdr's response line and every event line pushed after one session change; `events-<scenario>.ids.json` names that scenario's workspace, tab, Target Pane, sibling and overlay. The overlay is a stand-in plugin (`scripts/probe-plugin`) whose pane only sleeps. With the throwaway server running:
+
+```sh
+herdr plugin link yubi/testdata/herdr-0.9.5/scripts/probe-plugin
+python3 yubi/testdata/herdr-0.9.5/scripts/capture-events.py
+```
+
+`events-subscribe-rejected.ndjson` is a subscription naming a pane that does not exist (herdr answers `pane_not_found` and closes the connection). herdr refuses to move a pane out of a zoomed tab, so `target-moved` un-zooms the tab before moving the Target.
+
 ## `golden/`: render goldens
 
 Text dumps of rendered frames: the cell grid, then a style map with one letter per cell. Regenerate them after an intended rendering change with:
