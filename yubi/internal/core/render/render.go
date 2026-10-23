@@ -27,6 +27,7 @@ const (
 	Dim                    // Target Pane text outside Matches: original style plus faint
 	Selected               // Target Pane text in a Line Mode selection: reverse video over its original style
 	Error                  // error text in the status row: bold red, reverse video
+	Paste                  // the paste marker in the status row: bold on magenta
 )
 
 // sgr is the fixed style of each yubi role; Text keeps the cell's original SGR.
@@ -36,6 +37,7 @@ var sgr = map[Role]string{
 	Hint:       "1;30;43",
 	HintTyped:  "2;30;43",
 	Error:      "7;1;31",
+	Paste:      "1;30;45",
 }
 
 // overSGR is added to the original SGR of cells in roles that keep it.
@@ -56,6 +58,7 @@ var letter = map[Role]byte{
 	Dim:        'd',
 	Selected:   'r',
 	Error:      'e',
+	Paste:      'm',
 }
 
 // Cell is one terminal cell.

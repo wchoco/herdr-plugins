@@ -167,6 +167,30 @@ func TestCloseOverlayNotFound(t *testing.T) {
 	}
 }
 
+func TestPasteSendsTextOnlyWithSendInput(t *testing.T) {
+	// The capture's request has text and no keys: no Enter is sent.
+	c := herdr.NewClient(replay(t, "pane-send-input"))
+	if err := c.Paste(context.Background(), "w1:p1", "echo pasted\nsecond line"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPastePaneNotFound(t *testing.T) {
+	c := herdr.NewClient(replay(t, "pane-send-input-not-found"))
+	err := c.Paste(context.Background(), "w9:p99", "x")
+	if err == nil || err.Error() != "pane_not_found" {
+		t.Fatalf("got %v, want pane_not_found", err)
+	}
+}
+
+func TestPasteSocketUnreachable(t *testing.T) {
+	c := herdr.NewClient(filepath.Join(t.TempDir(), "missing.sock"))
+	err := c.Paste(context.Background(), "w1:p1", "x")
+	if err == nil || err.Error() != "socket unreachable" {
+		t.Fatalf("got %v, want socket unreachable", err)
+	}
+}
+
 func TestOSC52Copy(t *testing.T) {
 	var out bytes.Buffer
 	if err := herdr.NewOSC52(&out).Copy("emoji 🎉 party"); err != nil {

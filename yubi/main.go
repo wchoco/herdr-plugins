@@ -101,6 +101,7 @@ func ui() error {
 		session.Deps{
 			Source:    client,
 			Clipboard: herdr.NewOSC52(tty.Writer()),
+			Paster:    client,
 			Terminal:  tty,
 			Events:    client,
 		})

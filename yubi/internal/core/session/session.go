@@ -3,12 +3,13 @@
 // through the adapter interfaces defined here.
 //
 // session is core: it does no I/O of its own and never imports the herdr
-// adapter. The adapter implements PaneSource, Clipboard, Terminal and
-// EventStream.
+// adapter. The adapter implements PaneSource, Clipboard, Paster, Terminal
+// and EventStream.
 package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,6 +17,9 @@ import (
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 )
+
+// errNoPaster is the paste failure of a session run without a Paster.
+var errNoPaster = errors.New("no paster")
 
 // Format is the format of a pane read.
 type Format int
@@ -35,6 +39,11 @@ type PaneSource interface {
 // Clipboard puts text on the user's clipboard.
 type Clipboard interface {
 	Copy(text string) error
+}
+
+// Paster types text into a pane, as a paste: no Enter is sent.
+type Paster interface {
+	Paste(ctx context.Context, pane, text string) error
 }
 
 // Terminal is yubi's own overlay pane.
@@ -88,6 +97,7 @@ type Config struct {
 type Deps struct {
 	Source    PaneSource
 	Clipboard Clipboard
+	Paster    Paster // for Paste Copy
 	Terminal  Terminal
 	Events    EventStream // nil: the session is not watched
 	Clock     Clock       // nil means the system clock
@@ -137,6 +147,22 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 				}
 				m.Fail("copy failed: " + err.Error())
 				redraw = true
+			case Paste:
+				// Always copy first: a failed copy shows only its own error.
+				if err := d.Clipboard.Copy(a.Text); err != nil {
+					m.Fail("copy failed: " + err.Error())
+					redraw = true
+					continue
+				}
+				err := errNoPaster
+				if d.Paster != nil {
+					err = d.Paster.Paste(ctx, cfg.Target, PasteText(a.Text))
+				}
+				if err == nil {
+					return true
+				}
+				m.FailPaste(err)
+				redraw = true
 			case Exit:
 				return true
 			case Redraw:
@@ -177,7 +203,12 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 			}
 		case ev, ok := <-events:
 			// Without the subscription yubi cannot tell whether its
-			// render is stale, so its end ends the session too.
+			// render is stale, so its end ends the session too, unless
+			// a paste failure report is up: that waits for a key.
+			if !ok && m.pasteFailed {
+				events = nil
+				continue
+			}
 			if !ok || apply(m.Event(ev)) {
 				return nil
 			}

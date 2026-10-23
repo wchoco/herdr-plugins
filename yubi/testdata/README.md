@@ -56,6 +56,12 @@ The re-launch captures (`pane-get*`, `plugin-pane-close*`) need any pane and an 
 python3 yubi/testdata/herdr-0.9.5/scripts/capture-relaunch.py <pane-id> <overlay-pane-id>
 ```
 
+The Paste Copy captures (`pane-send-input*`) need a pane at a shell prompt, which receives the pasted text (no Enter):
+
+```sh
+python3 yubi/testdata/herdr-0.9.5/scripts/capture-paste.py <pane-id>
+```
+
 ### Event captures: `ndjson/events-*`
 
 Each `ndjson/events-<scenario>.ndjson` holds yubi's `events.subscribe` request line, herdr's response line and every event line pushed after one session change; `events-<scenario>.ids.json` names that scenario's workspace, tab, Target Pane, sibling and overlay. The overlay is a stand-in plugin (`scripts/probe-plugin`) whose pane only sleeps. With the throwaway server running:
