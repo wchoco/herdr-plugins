@@ -62,6 +62,12 @@ The layout captures (`pane-layout-*`) need a tab split three ways (`herdr pane s
 python3 yubi/testdata/herdr-0.9.5/scripts/capture-layout.py <top-right-pane-id>
 ```
 
+The Paste Copy captures (`pane-send-input*`) need a pane at a shell prompt, which receives the pasted text (no Enter):
+
+```sh
+python3 yubi/testdata/herdr-0.9.5/scripts/capture-paste.py <pane-id>
+```
+
 ### Event captures: `ndjson/events-*`
 
 Each `ndjson/events-<scenario>.ndjson` holds yubi's `events.subscribe` request line, herdr's response line and every event line pushed after one session change; `events-<scenario>.ids.json` names that scenario's workspace, tab, Target Pane, sibling and overlay. The overlay is a stand-in plugin (`scripts/probe-plugin`) whose pane only sleeps. With the throwaway server running:

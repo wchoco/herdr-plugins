@@ -17,6 +17,7 @@ type hintState struct {
 	matches []hint.Match      // on the displayed rows, in reading order
 	hints   map[string]string // copied text -> Hint
 	typed   string            // Hint characters typed so far
+	paste   bool              // the first character was uppercase: Paste Copy
 }
 
 // NewHint starts Hint Mode on scr in a w x h overlay. Only the rows above
@@ -51,6 +52,12 @@ func newHint(scr screen.Screen, p layout.Placement, set config.Config) *Machine 
 }
 
 func (s *hintState) key(k keys.Key) []Action {
+	k = keys.Canon(k)
+	upper := k.Mod == 0 && k.Code >= 'A' && k.Code <= 'Z'
+	if upper {
+		// Hints are lowercase; only the first character's case counts.
+		k.Code += 'a' - 'A'
+	}
 	switch {
 	case k == keys.Key{Code: keys.Escape}, k == keys.Key{Code: 'c', Mod: keys.Ctrl}:
 		return []Action{Exit{}}
@@ -59,12 +66,19 @@ func (s *hintState) key(k keys.Key) []Action {
 			return nil
 		}
 		s.typed = s.typed[:len(s.typed)-1] // Hints are ASCII letters
+		if s.typed == "" {
+			s.paste = false
+		}
 		return []Action{Redraw{}}
 	case k.Mod == 0 && k.Code > ' ':
 		next := s.typed + string(k.Code)
+		paste := s.paste || s.typed == "" && upper
 		continues := false
 		for text, h := range s.hints {
 			if h == next {
+				if paste {
+					return []Action{Paste{Text: text}}
+				}
 				return []Action{Copy{Text: text}}
 			}
 			if strings.HasPrefix(h, next) {
@@ -73,6 +87,7 @@ func (s *hintState) key(k keys.Key) []Action {
 		}
 		if continues {
 			s.typed = next
+			s.paste = paste
 			return []Action{Redraw{}}
 		}
 	}

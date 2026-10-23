@@ -19,6 +19,10 @@ type Action interface{ action() }
 // Copy puts Text on the clipboard; on success the session ends.
 type Copy struct{ Text string }
 
+// Paste copies Text, then pastes it into the Target Pane (Paste Copy); on
+// success the session ends.
+type Paste struct{ Text string }
+
 // Exit ends the session without copying.
 type Exit struct{}
 
@@ -26,6 +30,7 @@ type Exit struct{}
 type Redraw struct{}
 
 func (Copy) action()   {}
+func (Paste) action()  {}
 func (Exit) action()   {}
 func (Redraw) action() {}
 
@@ -40,6 +45,8 @@ type Machine struct {
 	input   string // Line Mode input typed so far
 	err     string // input error shown next to the input until the next key
 	message string // when set, a message-only state: nothing is selectable
+
+	pasteFailed bool // message reports a failed paste; stale exits wait for a key
 
 	hint *hintState // set in Hint Mode
 
@@ -106,23 +113,36 @@ func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 // Fail switches to a message-only state showing msg.
 func (m *Machine) Fail(msg string) { m.message = msg }
 
+// FailPaste reports a Paste Copy whose copy worked but whose paste failed.
+// The report then outlives events and resizes that would otherwise end the
+// session silently: the user must learn the paste did not happen.
+func (m *Machine) FailPaste(err error) {
+	m.message = "copied; paste failed: " + err.Error()
+	m.pasteFailed = true
+}
+
 // Event handles a change in the herdr session. A change that makes the
 // render stale ends the session silently, in every state: yubi never
 // copies from a stale render or lingers as an orphan pane.
 func (m *Machine) Event(ev Event) []Action {
-	if stale(m.cfg, ev) {
+	if stale(m.cfg, ev) && !m.pasteFailed {
 		return []Action{Exit{}}
 	}
 	return nil
 }
 
 // Resize handles the overlay's new size. Any change ends the session
-// silently; yubi does not re-render.
+// silently; yubi does not re-render. A paste failure report is the
+// exception: it is drawn again at the new size and waits for a key.
 func (m *Machine) Resize(w, h int) []Action {
-	if w != m.w || h != m.h {
-		return []Action{Exit{}}
+	if w == m.w && h == m.h {
+		return nil
 	}
-	return nil
+	if m.pasteFailed {
+		m.w, m.h = w, h
+		return []Action{Redraw{}}
+	}
+	return []Action{Exit{}}
 }
 
 // Key handles one key press.
@@ -146,9 +166,18 @@ func (m *Machine) Key(k keys.Key) []Action {
 	case k == keys.Key{Code: 'u', Mod: keys.Ctrl}:
 		return m.edit("")
 	case bound(m.set.Copy, k):
-		return m.commit(false)
+		return m.commit(false, false)
 	case bound(m.set.Joined, k):
-		return m.commit(true)
+		return m.commit(true, false)
+	case k.Mod&keys.Alt != 0:
+		// Alt on any commit key adds the paste.
+		k.Mod &^= keys.Alt
+		switch {
+		case bound(m.set.Copy, k):
+			return m.commit(false, true)
+		case bound(m.set.Joined, k):
+			return m.commit(true, true)
+		}
 	}
 	return nil
 }
@@ -172,8 +201,9 @@ func (m *Machine) edit(input string) []Action {
 }
 
 // commit validates the whole input and copies the selected rows, as one
-// line when joined, or shows why it cannot. Empty input is a no-op.
-func (m *Machine) commit(joined bool) []Action {
+// line when joined, or shows why it cannot; paste pastes the text into the
+// Target Pane too. Empty input is a no-op.
+func (m *Machine) commit(joined, paste bool) []Action {
 	if m.input == "" {
 		return nil
 	}
@@ -182,10 +212,14 @@ func (m *Machine) commit(joined bool) []Action {
 		m.err = err.Error()
 		return []Action{Redraw{}}
 	}
+	text := line.Copy(m.scr, rows)
 	if joined {
-		return []Action{Copy{Text: line.JoinedCopy(m.scr, rows, m.set.Separator)}}
+		text = line.JoinedCopy(m.scr, rows, m.set.Separator)
 	}
-	return []Action{Copy{Text: line.Copy(m.scr, rows)}}
+	if paste {
+		return []Action{Paste{Text: text}}
+	}
+	return []Action{Copy{Text: text}}
 }
 
 func (m *Machine) selection() ([]int, error) {
@@ -230,6 +264,10 @@ func (m *Machine) Frame() *render.Grid {
 	if errText != "" {
 		// The status text is ASCII in Line Mode, so its width is its length.
 		g.Label(status, len(text)+2, errText, render.Error)
+	}
+	if m.message == "" && m.hint != nil && m.hint.paste {
+		// Hint Mode's status text is ASCII too.
+		g.Label(status, len(text)+2, "paste", render.Paste)
 	}
 	return g
 }

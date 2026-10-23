@@ -28,6 +28,7 @@ const (
 	Selected               // Target Pane text in a Line Mode selection: reverse video over its original style
 	Error                  // error text in the status row: bold red, reverse video
 	Rule                   // a rule on a pane border: faint
+	Paste                  // the paste marker in the status row: bold on magenta
 )
 
 // sgr is the fixed style of each yubi role; Text keeps the cell's original SGR.
@@ -38,6 +39,7 @@ var sgr = map[Role]string{
 	HintTyped:  "2;30;43",
 	Error:      "7;1;31",
 	Rule:       "2",
+	Paste:      "1;30;45",
 }
 
 // overSGR is added to the original SGR of cells in roles that keep it.
@@ -59,6 +61,7 @@ var letter = map[Role]byte{
 	Selected:   'r',
 	Error:      'e',
 	Rule:       'b',
+	Paste:      'm',
 }
 
 // Cell is one terminal cell.

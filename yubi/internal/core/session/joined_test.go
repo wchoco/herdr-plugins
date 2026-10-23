@@ -74,7 +74,6 @@ func TestLineModeKeysUnderKittyEncoding(t *testing.T) {
 		{name: "ctrl-u", reads: []string{"4", "\x1b[117;5u", "3", "\r"}, copies: []string{"emoji 🎉 party"}},
 		{name: "esc cancels", reads: []string{"3", "\x1b[27u", "\r"}},
 		{name: "ctrl-c cancels", reads: []string{"3", "\x1b[99;5u", "\r"}},
-		{name: "alt-enter is not a copy", reads: []string{"3", "\x1b[13;3u"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -1,0 +1,2 @@
+{"id":"1","method":"pane.send_input","params":{"pane_id":"w1:p1","text":"echo pasted\nsecond line"}}
+{"id":"1","result":{"type":"ok"}}
