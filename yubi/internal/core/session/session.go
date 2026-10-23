@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/config"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 )
@@ -76,6 +77,11 @@ type Config struct {
 	// The overlay's own pane, tab and workspace ids. Focus moving off any
 	// of them ends the session; an empty id is not checked.
 	Overlay, Tab, Workspace string
+
+	// Settings from config.toml; nil means the defaults. When SettingsErr
+	// is set the config is invalid: the session only shows the error.
+	Settings    *config.Config
+	SettingsErr error
 }
 
 // Deps are the adapters a session runs with.

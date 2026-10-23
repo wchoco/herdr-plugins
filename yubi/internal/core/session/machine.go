@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/config"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/line"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
@@ -27,13 +28,11 @@ func (Copy) action()   {}
 func (Exit) action()   {}
 func (Redraw) action() {}
 
-// joinSeparator joins the lines of a Joined Copy.
-const joinSeparator = ""
-
 // Machine is the overlay's state machine: key events in, actions out, and
 // the frame for the current state.
 type Machine struct {
 	cfg     Config // the session's ids, for telling stale events apart
+	set     config.Config
 	w, h    int
 	scr     screen.Screen
 	num     line.Numbering
@@ -47,7 +46,11 @@ type Machine struct {
 // NewLine starts Line Mode on scr in a w x h overlay. The status row is the
 // overlay's bottom row, so the rows above it are the rows yubi displays.
 func NewLine(scr screen.Screen, w, h int) *Machine {
-	m := &Machine{w: w, h: h, scr: scr, num: line.NewNumbering(scr, h-1)}
+	return newLine(scr, w, h, config.Default())
+}
+
+func newLine(scr screen.Screen, w, h int, set config.Config) *Machine {
+	m := &Machine{w: w, h: h, scr: scr, set: set, num: line.NewNumbering(scr, h-1)}
 	if m.num.Max() == 0 {
 		m.message = "nothing to copy"
 	}
@@ -72,14 +75,21 @@ func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	default:
 		return newMessage("unknown mode "+strconv.Quote(string(cfg.Mode)), w, h)
 	}
+	if cfg.SettingsErr != nil {
+		return newMessage(cfg.SettingsErr.Error(), w, h)
+	}
+	set := config.Default()
+	if cfg.Settings != nil {
+		set = *cfg.Settings
+	}
 	ansi, err := src.ReadVisible(ctx, cfg.Target, FormatANSI)
 	if err != nil {
 		return newMessage("cannot read target: "+err.Error(), w, h)
 	}
 	if cfg.Mode == ModeHint {
-		return NewHint(screen.ParseANSI(ansi), w, h)
+		return newHint(screen.ParseANSI(ansi), w, h, set)
 	}
-	return NewLine(screen.ParseANSI(ansi), w, h)
+	return newLine(screen.ParseANSI(ansi), w, h, set)
 }
 
 // Fail switches to a message-only state showing msg.
@@ -124,12 +134,23 @@ func (m *Machine) Key(k keys.Key) []Action {
 		return m.edit(m.input[:len(m.input)-1])
 	case k == keys.Key{Code: 'u', Mod: keys.Ctrl}:
 		return m.edit("")
-	case k == keys.Key{Code: keys.Enter}:
+	case bound(m.set.Copy, k):
 		return m.commit(false)
-	case k == keys.Key{Code: keys.Enter, Mod: keys.Ctrl}, k == keys.Key{Code: 'j', Mod: keys.Ctrl}:
+	case bound(m.set.Joined, k):
 		return m.commit(true)
 	}
 	return nil
+}
+
+// bound reports whether k is one of the commit keys ks (in keys.Canon form).
+func bound(ks []keys.Key, k keys.Key) bool {
+	k = keys.Canon(k)
+	for _, b := range ks {
+		if b == k {
+			return true
+		}
+	}
+	return false
 }
 
 // edit replaces the Line Mode input; any shown error goes away.
@@ -151,7 +172,7 @@ func (m *Machine) commit(joined bool) []Action {
 		return []Action{Redraw{}}
 	}
 	if joined {
-		return []Action{Copy{Text: line.JoinedCopy(m.scr, rows, joinSeparator)}}
+		return []Action{Copy{Text: line.JoinedCopy(m.scr, rows, m.set.Separator)}}
 	}
 	return []Action{Copy{Text: line.Copy(m.scr, rows)}}
 }
