@@ -37,14 +37,14 @@ func (Redraw) action() {}
 // Machine is the overlay's state machine: key events in, actions out, and
 // the frame for the current state.
 type Machine struct {
-	cfg     Config // the session's ids, for telling stale events apart
-	set     config.Config
-	w, h    int
-	scr     screen.Screen
-	num     line.Numbering
-	input   string // Line Mode input typed so far
-	err     string // input error shown next to the input until the next key
-	message string // when set, a message-only state: nothing is selectable
+	cfg      Config        // the session's ids, for telling stale events apart
+	settings config.Config // from config.toml, or the defaults
+	scr      screen.Screen
+	num      line.Numbering
+	input    string // Line Mode input typed so far
+	err      string // input error shown next to the input until the next key
+	message  string // when set, a message-only state: nothing is selectable
+	info     bool   // message is information, not an error: drawn plain
 
 	pasteFailed bool // message reports a failed paste; stale exits wait for a key
 
@@ -66,17 +66,17 @@ func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
 	return newLine(scr, p, config.Default())
 }
 
-func newLine(scr screen.Screen, p layout.Placement, set config.Config) *Machine {
-	m := &Machine{w: p.W, h: p.H, scr: scr, set: set, place: p, num: line.NewNumbering(scr, displayedRows(p))}
+func newLine(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
+	m := &Machine{scr: scr, settings: settings, place: p, num: line.NewNumbering(scr, displayedRows(p))}
 	if m.num.Max() == 0 {
-		m.message = "nothing to copy"
+		m.inform("nothing to copy")
 	}
 	return m
 }
 
-// newMessage starts a message-only state.
+// newMessage starts a message-only state showing the error msg.
 func newMessage(msg string, w, h int) *Machine {
-	return &Machine{w: w, h: h, message: msg}
+	return &Machine{place: layout.Placement{W: w, H: h}, message: msg}
 }
 
 // start reads the Target Pane and builds the machine for cfg.
@@ -95,9 +95,9 @@ func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	if cfg.SettingsErr != nil {
 		return newMessage(cfg.SettingsErr.Error(), w, h)
 	}
-	set := config.Default()
+	settings := config.Default()
 	if cfg.Settings != nil {
-		set = *cfg.Settings
+		settings = *cfg.Settings
 	}
 	ansi, err := src.ReadVisible(ctx, cfg.Target, FormatANSI)
 	if err != nil {
@@ -105,19 +105,23 @@ func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	}
 	p := layout.Place(targetTab(cfg), w, h)
 	if cfg.Mode == ModeHint {
-		return newHint(screen.ParseANSI(ansi), p, set)
+		return newHint(screen.ParseANSI(ansi), p, settings)
 	}
-	return newLine(screen.ParseANSI(ansi), p, set)
+	return newLine(screen.ParseANSI(ansi), p, settings)
 }
 
-// Fail switches to a message-only state showing msg.
-func (m *Machine) Fail(msg string) { m.message = msg }
+// Fail switches to a message-only state showing the error msg.
+func (m *Machine) Fail(msg string) { m.message, m.info = msg, false }
+
+// inform switches to a message-only state showing msg, which is not an
+// error.
+func (m *Machine) inform(msg string) { m.message, m.info = msg, true }
 
 // FailPaste reports a Paste Copy whose copy worked but whose paste failed.
 // The report then outlives events and resizes that would otherwise end the
 // session silently: the user must learn the paste did not happen.
 func (m *Machine) FailPaste(err error) {
-	m.message = "copied; paste failed: " + err.Error()
+	m.Fail("copied; paste failed: " + err.Error())
 	m.pasteFailed = true
 }
 
@@ -135,11 +139,12 @@ func (m *Machine) Event(ev Event) []Action {
 // silently; yubi does not re-render. A paste failure report is the
 // exception: it is drawn again at the new size and waits for a key.
 func (m *Machine) Resize(w, h int) []Action {
-	if w == m.w && h == m.h {
+	if w == m.place.W && h == m.place.H {
 		return nil
 	}
 	if m.pasteFailed {
-		m.w, m.h = w, h
+		// Only the size matters: a message draws no panes.
+		m.place.W, m.place.H = w, h
 		return []Action{Redraw{}}
 	}
 	return []Action{Exit{}}
@@ -165,17 +170,17 @@ func (m *Machine) Key(k keys.Key) []Action {
 		return m.edit(m.input[:len(m.input)-1])
 	case k == keys.Key{Code: 'u', Mod: keys.Ctrl}:
 		return m.edit("")
-	case bound(m.set.Copy, k):
+	case bound(m.settings.Copy, k):
 		return m.commit(false, false)
-	case bound(m.set.Joined, k):
+	case bound(m.settings.Joined, k):
 		return m.commit(true, false)
 	case k.Mod&keys.Alt != 0:
 		// Alt on any commit key adds the paste.
 		k.Mod &^= keys.Alt
 		switch {
-		case bound(m.set.Copy, k):
+		case bound(m.settings.Copy, k):
 			return m.commit(false, true)
-		case bound(m.set.Joined, k):
+		case bound(m.settings.Joined, k):
 			return m.commit(true, true)
 		}
 	}
@@ -212,14 +217,29 @@ func (m *Machine) commit(joined, paste bool) []Action {
 		m.err = err.Error()
 		return []Action{Redraw{}}
 	}
+	if m.blank(rows) {
+		m.err = "nothing to copy"
+		return []Action{Redraw{}}
+	}
 	text := line.Copy(m.scr, rows)
 	if joined {
-		text = line.JoinedCopy(m.scr, rows, m.set.Separator)
+		text = line.JoinedCopy(m.scr, rows, m.settings.Separator)
 	}
 	if paste {
 		return []Action{Paste{Text: text}}
 	}
 	return []Action{Copy{Text: text}}
+}
+
+// blank reports whether every one of rows is blank, so the selection has
+// no text to copy.
+func (m *Machine) blank(rows []int) bool {
+	for _, r := range rows {
+		if strings.TrimSpace(m.scr.Rows[r].Text()) != "" {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *Machine) selection() ([]int, error) {
@@ -232,11 +252,11 @@ func (m *Machine) selection() ([]int, error) {
 
 // Frame renders the current state.
 func (m *Machine) Frame() *render.Grid {
-	g := render.NewGrid(m.w, m.h)
-	if m.h == 0 {
+	g := render.NewGrid(m.place.W, m.place.H)
+	if g.H == 0 {
 		return g
 	}
-	status := m.h - 1
+	status := g.H - 1
 	if m.message == "" {
 		m.drawOthers(g)
 	}
@@ -258,9 +278,13 @@ func (m *Machine) Frame() *render.Grid {
 			}
 		}
 	}
-	g.Fill(status, 0, m.w, render.Status)
+	g.Fill(status, 0, g.W, render.Status)
 	text, errText := m.statusText()
-	g.Label(status, 0, text, render.Status)
+	if m.message != "" && !m.info {
+		g.Label(status, 0, text, render.Error)
+	} else {
+		g.Label(status, 0, text, render.Status)
+	}
 	if errText != "" {
 		// The status text is ASCII in Line Mode, so its width is its length.
 		g.Label(status, len(text)+2, errText, render.Error)

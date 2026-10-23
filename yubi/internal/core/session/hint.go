@@ -34,20 +34,20 @@ func NewHintAt(scr screen.Screen, p layout.Placement) *Machine {
 	return newHint(scr, p, config.Default())
 }
 
-func newHint(scr screen.Screen, p layout.Placement, set config.Config) *Machine {
-	m := &Machine{w: p.W, h: p.H, scr: scr, set: set, place: p}
+func newHint(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
+	m := &Machine{scr: scr, settings: settings, place: p}
 	n := displayedRows(p)
 	displayed := scr.Rows[:max(min(n, len(scr.Rows)), 0)]
 	if line.NewNumbering(scr, n).Max() == 0 {
-		m.message = "nothing to copy"
+		m.inform("nothing to copy")
 		return m
 	}
-	ms := hint.Find(displayed, set.Patterns)
+	ms := hint.Find(displayed, settings.Patterns)
 	if len(ms) == 0 {
-		m.message = "no matches"
+		m.inform("no matches")
 		return m
 	}
-	m.hint = &hintState{matches: ms, hints: hint.Assign(ms, set.Alphabet)}
+	m.hint = &hintState{matches: ms, hints: hint.Assign(ms, settings.Alphabet)}
 	return m
 }
 
