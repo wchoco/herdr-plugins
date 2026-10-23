@@ -115,8 +115,9 @@ func TestReadVisiblePaneNotFound(t *testing.T) {
 
 func TestReadVisibleSocketUnreachable(t *testing.T) {
 	c := herdr.NewClient(filepath.Join(t.TempDir(), "missing.sock"))
-	if _, err := c.ReadVisible(context.Background(), "w1:p1", session.FormatANSI); err == nil {
-		t.Fatal("no error")
+	_, err := c.ReadVisible(context.Background(), "w1:p1", session.FormatANSI)
+	if err == nil || err.Error() != "socket unreachable" {
+		t.Fatalf("got %v, want socket unreachable", err)
 	}
 }
 

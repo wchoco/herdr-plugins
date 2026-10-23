@@ -50,9 +50,10 @@ func (c *fakeClipboard) Copy(text string) error {
 }
 
 type fakeTerminal struct {
-	w, h   int
-	input  chan []byte
-	frames []*render.Grid
+	w, h    int
+	input   chan []byte
+	resized chan struct{}
+	frames  []*render.Grid
 }
 
 func newTerminal(w, h int, reads ...string) *fakeTerminal {
@@ -64,8 +65,9 @@ func newTerminal(w, h int, reads ...string) *fakeTerminal {
 	return t
 }
 
-func (t *fakeTerminal) Size() (int, int, error) { return t.w, t.h, nil }
-func (t *fakeTerminal) Input() <-chan []byte    { return t.input }
+func (t *fakeTerminal) Size() (int, int, error)  { return t.w, t.h, nil }
+func (t *fakeTerminal) Input() <-chan []byte     { return t.input }
+func (t *fakeTerminal) Resized() <-chan struct{} { return t.resized }
 func (t *fakeTerminal) Draw(frame *render.Grid) error {
 	t.frames = append(t.frames, frame)
 	return nil

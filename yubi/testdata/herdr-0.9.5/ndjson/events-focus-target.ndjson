@@ -1,0 +1,5 @@
+{"id":"1","method":"events.subscribe","params":{"subscriptions":[{"type":"pane.closed"},{"type":"pane.exited"},{"type":"pane.moved"},{"type":"pane.focused"},{"type":"tab.focused"},{"type":"workspace.focused"},{"type":"layout.updated"}]}}
+{"id":"1","result":{"type":"subscription_started"}}
+{"data":{"pane_id":"wV:p1","type":"pane_focused","workspace_id":"wV"},"event":"pane_focused"}
+{"data":{"tab_id":"wV:t1","type":"tab_focused","workspace_id":"wV"},"event":"tab_focused"}
+{"data":{"type":"workspace_focused","workspace_id":"wV"},"event":"workspace_focused"}
