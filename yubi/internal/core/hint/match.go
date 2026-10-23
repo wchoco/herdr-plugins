@@ -16,9 +16,24 @@ type Pattern struct {
 }
 
 // builtins are the Built-in Patterns in priority order, highest first.
+// The regexes are tmux-thumbs' (none uses lookaround, so all are RE2).
+// Where thumbs copies an unnamed group, the group is named `match` here.
 var builtins = []Pattern{
+	{"markdown_url", regexp.MustCompile(`\[[^\]]*\]\((?P<match>[^)]+)\)`)},
 	{"url", regexp.MustCompile(`(?P<match>(https?://|git@|git://|ssh://|ftp://|file:///)[^ ]+)`)},
+	{"diff_a", regexp.MustCompile(`--- a/(?P<match>[^ ]+)`)},
+	{"diff_b", regexp.MustCompile(`\+\+\+ b/(?P<match>[^ ]+)`)},
+	{"docker", regexp.MustCompile(`sha256:(?P<match>[0-9a-f]{64})`)},
 	{"path", regexp.MustCompile(`(?P<match>([.\w\-@$~\[\]]+)?(/[.\w\-@$\[\]]+)+)`)},
+	{"color", regexp.MustCompile(`#[0-9a-fA-F]{6}`)},
+	{"uuid", regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)},
+	{"sha", regexp.MustCompile(`[0-9a-f]{7,40}`)},
+	{"ipv4", regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)},
+	// A-f is the ASCII range A..f, as in thumbs, so clock times and
+	// "Key:12" match too.
+	{"ipv6", regexp.MustCompile(`[A-f0-9:]+:+[A-f0-9:]+[%\w\d]+`)},
+	{"address", regexp.MustCompile(`0x[0-9a-fA-F]+`)},
+	{"number", regexp.MustCompile(`[0-9]{4,}`)},
 }
 
 // Builtins returns the Built-in Patterns in priority order, highest first.
