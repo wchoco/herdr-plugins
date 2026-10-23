@@ -10,7 +10,9 @@ package session
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 )
 
@@ -47,6 +49,17 @@ type Terminal interface {
 	Draw(frame *render.Grid) error
 }
 
+// Clock is the time source for the lone-Esc timeout.
+type Clock interface {
+	Now() time.Time
+	After(d time.Duration) <-chan time.Time
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time                         { return time.Now() }
+func (realClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
+
 // Mode is the selection mode a session starts in.
 type Mode string
 
@@ -71,6 +84,7 @@ type Deps struct {
 	Clipboard Clipboard
 	Terminal  Terminal
 	Events    EventStream // nil: the session is not watched
+	Clock     Clock       // nil means the system clock
 }
 
 // Run runs one overlay session until the user copies or cancels, the input
@@ -100,6 +114,11 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 	if err := d.Terminal.Draw(m.Frame()); err != nil {
 		return err
 	}
+	clock := d.Clock
+	if clock == nil {
+		clock = realClock{}
+	}
+	dec := keys.NewDecoder(keys.EscTimeout)
 	redraw := false
 	// apply carries out actions; it reports whether the session is over.
 	apply := func(actions []Action) bool {
@@ -120,8 +139,22 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 		}
 		return false
 	}
+	// press applies decoded keys; it reports whether the session is over.
+	press := func(ks []keys.Key) bool {
+		for _, k := range ks {
+			if apply(m.Key(k)) {
+				return true
+			}
+		}
+		return false
+	}
 	for {
 		redraw = false
+		// A lone Esc from a legacy terminal waits for its timeout.
+		var timer <-chan time.Time
+		if deadline, ok := dec.Deadline(); ok {
+			timer = clock.After(deadline.Sub(clock.Now()))
+		}
 		select {
 		case <-ctx.Done():
 			return nil
@@ -129,10 +162,12 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 			if !ok {
 				return nil
 			}
-			for _, k := range decode(b) {
-				if apply(m.Key(k)) {
-					return nil
-				}
+			if press(dec.Feed(b, clock.Now())) {
+				return nil
+			}
+		case <-timer:
+			if press(dec.Expire(clock.Now())) {
+				return nil
 			}
 		case ev, ok := <-events:
 			// Without the subscription yubi cannot tell whether its
