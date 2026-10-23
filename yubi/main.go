@@ -1,0 +1,84 @@
+// Command yubi is a herdr plugin that copies text from the Target Pane's
+// visible screen with Hints or Line Numbers.
+//
+//	yubi version        print <version>+<commit>[.dirty]
+//	yubi action <mode>  run by herdr's plugin_action: open the overlay (mode: hint, line)
+//	yubi ui             the overlay pane process (YUBI_MODE, YUBI_TARGET_PANE)
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"runtime/debug"
+	"time"
+
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/session"
+	"github.com/wchoco/herdr-plugins/yubi/internal/herdr"
+)
+
+const pluginID = "wchoco.yubi"
+
+func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "yubi:", err)
+		os.Exit(1)
+	}
+}
+
+func run(args []string) error {
+	if len(args) == 0 {
+		return usage()
+	}
+	switch args[0] {
+	case "version":
+		info, _ := debug.ReadBuildInfo()
+		v, err := versionString(manifest, info)
+		if err != nil {
+			return err
+		}
+		fmt.Println(v)
+		return nil
+	case "action":
+		if len(args) != 2 || (args[1] != string(session.ModeHint) && args[1] != string(session.ModeLine)) {
+			return usage()
+		}
+		return action(session.Mode(args[1]))
+	case "ui":
+		return ui()
+	}
+	return usage()
+}
+
+func usage() error {
+	return fmt.Errorf("usage: yubi version | yubi action <hint|line> | yubi ui")
+}
+
+// action runs without a TTY. It opens the overlay over the focused pane,
+// which becomes the Target Pane.
+func action(mode session.Mode) error {
+	target := os.Getenv("HERDR_PANE_ID")
+	if target == "" {
+		return fmt.Errorf("HERDR_PANE_ID is not set; run yubi from a herdr keybinding")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH")).OpenOverlay(ctx, pluginID, target, mode)
+	return err
+}
+
+// ui is the overlay pane process.
+func ui() error {
+	tty, err := herdr.OpenTTY(os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	defer tty.Close()
+	return session.Run(context.Background(),
+		session.Config{Mode: session.Mode(os.Getenv("YUBI_MODE")), Target: os.Getenv("YUBI_TARGET_PANE")},
+		session.Deps{
+			Source:    herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH")),
+			Clipboard: herdr.NewOSC52(tty.Writer()),
+			Terminal:  tty,
+		})
+}

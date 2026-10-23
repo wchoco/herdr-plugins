@@ -1,0 +1,2 @@
+{"id":"1","method":"pane.read","params":{"pane_id":"w6:p1","source":"visible","format":"text"}}
+{"id":"1","result":{"type":"pane_read","read":{"pane_id":"w6:p1","workspace_id":"w6","tab_id":"w6:t1","source":"visible","format":"text","text":"user@host:~/proj$ cat notes.txt\n日本語のテキスト: wide glyphs\nmixed ASCII 漢字 and かな, then a URL https://example.com/路径\ntruecolor 色 and 256-colour\nemoji 🎉 party\n全角 reverse\nuser@host:~/proj$\n","revision":0,"truncated":false}}}

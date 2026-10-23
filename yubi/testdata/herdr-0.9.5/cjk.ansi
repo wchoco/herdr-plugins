@@ -1,0 +1,7 @@
+[0m[38;5;2muser@host[0m:[0m[38;5;4m~/proj[0m$ cat notes.txt
+日本語のテキスト: wide glyphs
+mixed ASCII 漢字 and かな, then a URL https://example.com/路径
+[0m[38;2;255;136;0mtruecolor 色[0m and [0m[38;5;45m256-colour[0m
+emoji 🎉 party
+[0m[7m全角[0m reverse
+[0m[38;5;2muser@host[0m:[0m[38;5;4m~/proj[0m$ 

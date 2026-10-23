@@ -1,0 +1,7 @@
+user@host:~/proj$ echo $URL
+https://example.com/a/very/long/path/segment01/segment02/segment03/segment04/segment05/segment06/segment07/segment08/se
+gment09/segment10/segment11/segment12/segment13/segment14/segment15/segment16/segment17/segment18/segment19/segment20/s
+egment21/segment22/segment23/segment24/segment25/segment26/segment27/segment28/segment29/segment30/
+漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢
+漢漢漢漢漢漢漢漢漢漢漢
+user@host:~/proj$
