@@ -51,4 +51,4 @@ Delete the local head branch if it still exists. Done when `gh pr view <n> --jso
 
 ## 6. Release PRs
 
-When `headRefName` is `chore/release-<plugin-id>-vX.Y.Z`, tell the user the release is ready to tag as `<plugin-id>/vX.Y.Z`, following `docs/agents/versioning.md`. Tag and create the GitHub Release only when the user asks for it.
+When `headRefName` is `chore/release-<plugin-name>-vX.Y.Z`, tell the user the release is ready to tag as `<plugin-name>/vX.Y.Z`, following `docs/agents/versioning.md`. Tag and create the GitHub Release only when the user asks for it.
