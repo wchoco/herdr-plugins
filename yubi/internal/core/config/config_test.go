@@ -49,6 +49,22 @@ func TestDefaults(t *testing.T) {
 	if d.Separator != "" {
 		t.Errorf("separator %q", d.Separator)
 	}
+	if d.CopyCommand != nil {
+		t.Errorf("copy_command %q, want none (OSC 52)", d.CopyCommand)
+	}
+}
+
+func TestCopyCommand(t *testing.T) {
+	got, err := config.Parse([]byte("[clipboard]\ncopy_command = [\"sh\", \"-c\", \"cat > /tmp/x\"]"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"sh", "-c", "cat > /tmp/x"}; !reflect.DeepEqual(got.CopyCommand, want) {
+		t.Errorf("copy_command %q, want %q", got.CopyCommand, want)
+	}
+	if got, err := config.Parse([]byte("[clipboard]\n# copy_command = [\"wl-copy\"]")); err != nil || got.CopyCommand != nil {
+		t.Errorf("commented out: %q, %v; want none", got.CopyCommand, err)
+	}
 }
 
 func TestValidSettings(t *testing.T) {

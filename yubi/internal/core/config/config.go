@@ -5,7 +5,7 @@
 //
 // Errors are found in schema order: within a table its unknown keys
 // first (sorted), then its settings in the order the schema lists them,
-// [hint] before [line]. Array indexes count from 0.
+// [hint], [line], then [clipboard]. Array indexes count from 0.
 package config
 
 import (
@@ -31,6 +31,10 @@ type Config struct {
 	// Line Mode commit keys, in keys.Canon form.
 	Copy, Joined []keys.Key
 	Separator    string // joins the lines of a Joined Copy
+
+	// CopyCommand is the argv that receives copied text on stdin instead
+	// of OSC 52; nil means OSC 52.
+	CopyCommand []string
 }
 
 // Default returns the config used when there is no config file.
@@ -76,7 +80,7 @@ func errAt(path, format string, args ...any) error {
 }
 
 func parse(raw map[string]any, c *Config) error {
-	if err := unknown("", raw, "hint", "line"); err != nil {
+	if err := unknown("", raw, "hint", "line", "clipboard"); err != nil {
 		return err
 	}
 	if v, ok := raw["hint"]; ok {
@@ -97,6 +101,37 @@ func parse(raw map[string]any, c *Config) error {
 			return err
 		}
 	}
+	if v, ok := raw["clipboard"]; ok {
+		t, ok := v.(map[string]any)
+		if !ok {
+			return wrongType("clipboard", "table", v)
+		}
+		if err := parseClipboard(t, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func parseClipboard(t map[string]any, c *Config) error {
+	if err := unknown("clipboard.", t, "copy_command"); err != nil {
+		return err
+	}
+	v, ok := t["copy_command"]
+	if !ok {
+		return nil
+	}
+	argv, err := stringList("clipboard.copy_command", v)
+	if err != nil {
+		return err
+	}
+	if len(argv) == 0 {
+		return errAt("clipboard.copy_command", "must not be empty")
+	}
+	if argv[0] == "" {
+		return errAt("clipboard.copy_command[0]", "required")
+	}
+	c.CopyCommand = argv
 	return nil
 }
 
