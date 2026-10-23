@@ -1,0 +1,38 @@
+text:
+user@host:~/proj$ git status          ││8ser@host:~/proj$ git push           |
+On branch main                        ││7emote: Create a pull request:       |
+Changes not staged for commit:        ││6emote:   https://github.com/wchoco/h|
+  (use "git add <file>..." to update  ││5o github.com:wchoco/herdr-plugins.gi|
+        modified:   yubi/main.go      ││4ee https://example.com/docs and http|
+        modified:   README.md         ││3othing to hint on this row          |
+                                      ││2ser@host:~/proj$ go build ./...     |
+Untracked files:                      ││1/yubi/internal/core/hint/hint.go:12:|
+        yubi/testdata/                │└─────────────────────────────────────|
+                                      │┌─────────────────────────────────────|
+user@host:~/proj$ ls -l               ││user@host:~/proj$ cat notes.txt      |
+total 12                              ││日本語のテキスト: wide glyphs        |
+-rw-r--r-- 1 user user 1024 Oct 24 01 ││mixed ASCII 漢字 and かな, then a URL|
+drwxr-xr-x 3 user user 4096 Oct 24 01 ││truecolor 色 and 256-colour          |
+-rwxr-xr-x 1 user user 2048 Oct 24 01 ││emoji 🎉 party                       |
+trailing spaces                       ││全角 reverse                         |
+                                      ││user@host:~/proj$                    |
+LINE  2-3                                                                    |
+style:
+ddddddddddddddddddddddddddddddddddddd.bbnoooooooo.oooooo.....................|
+ddddddddddddddddddddddddddddddddddddd.bbn....................................|
+ddddddddddddddddddddddddddddddddddddd.bbn.........ooooooooooooooooooooooooooo|
+ddddddddddddddddddddddddddddddddddddd.bbn....................................|
+ddddddddddddddddddddddddddddddddddddd.bbn....................................|
+ddddddddddddddddddddddddddddddddddddd.bbnrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr|
+ddddddddddddddddddddddddddddddddddddd.bbnrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr|
+ddddddddddddddddddddddddddddddddddddd.bbnoooooooooooooooooooooooooooooooooooo|
+ddddddddddddddddddddddddddddddddddddd.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|
+ddddddddddddddddddddddddddddddddddddd.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss|

@@ -120,9 +120,13 @@ func (c *Client) ReadVisible(ctx context.Context, pane string, f session.Format)
 }
 
 // OpenOverlay opens yubi's overlay pane over the focused pane with
-// plugin.pane.open, handing it the Target Pane and mode, and focuses it.
-// It returns the overlay's pane id.
-func (c *Client) OpenOverlay(ctx context.Context, pluginID, target string, mode session.Mode) (string, error) {
+// plugin.pane.open, handing it the Target Pane and mode, plus the extra
+// environment variables, and focuses it. It returns the overlay's pane id.
+func (c *Client) OpenOverlay(ctx context.Context, pluginID, target string, mode session.Mode, extra map[string]string) (string, error) {
+	env := map[string]string{"YUBI_TARGET_PANE": target, "YUBI_MODE": string(mode)}
+	for k, v := range extra {
+		env[k] = v
+	}
 	var res struct {
 		PluginPane struct {
 			Pane struct {
@@ -133,7 +137,7 @@ func (c *Client) OpenOverlay(ctx context.Context, pluginID, target string, mode 
 	err := c.Call(ctx, "plugin.pane.open", map[string]any{
 		"plugin_id":  pluginID,
 		"entrypoint": "ui",
-		"env":        map[string]string{"YUBI_TARGET_PANE": target, "YUBI_MODE": string(mode)},
+		"env":        env,
 		"focus":      true,
 	}, &res)
 	return res.PluginPane.Pane.PaneID, err

@@ -27,6 +27,7 @@ const (
 	Dim                    // Target Pane text outside Matches: original style plus faint
 	Selected               // Target Pane text in a Line Mode selection: reverse video over its original style
 	Error                  // error text in the status row: bold red, reverse video
+	Rule                   // a rule on a pane border: faint
 )
 
 // sgr is the fixed style of each yubi role; Text keeps the cell's original SGR.
@@ -36,6 +37,7 @@ var sgr = map[Role]string{
 	Hint:       "1;30;43",
 	HintTyped:  "2;30;43",
 	Error:      "7;1;31",
+	Rule:       "2",
 }
 
 // overSGR is added to the original SGR of cells in roles that keep it.
@@ -56,6 +58,7 @@ var letter = map[Role]byte{
 	Dim:        'd',
 	Selected:   'r',
 	Error:      'e',
+	Rule:       'b',
 }
 
 // Cell is one terminal cell.
@@ -136,19 +139,42 @@ func (g *Grid) Restyle(y, x, n int, role Role) {
 	}
 }
 
-// Select shows row y as selected: every Target Pane text cell, blanks up to
-// the right edge included, is drawn in reverse video over its original
-// style. Cells in other roles, such as a Line Number label, are left as
-// they are.
-func (g *Grid) Select(y int) {
+// Select shows n cells from column x of row y as selected: every Target
+// Pane text cell among them, blanks included, is drawn in reverse video
+// over its original style. Cells in other roles, such as a Line Number
+// label, are left as they are.
+func (g *Grid) Select(y, x, n int) {
 	if y < 0 || y >= g.H {
 		return
 	}
-	for x := range g.cells[y] {
-		if c := &g.cells[y][x]; c.Role == Text {
+	for i := max(x, 0); i < x+n && i < g.W; i++ {
+		if c := &g.cells[y][i]; c.Role == Text {
 			c.Role = Selected
 		}
 	}
+}
+
+// Box draws a frame of thin rules in role's style around the w x h cells
+// whose top left corner is column x of row y, the rules included. Parts
+// outside the grid are not drawn.
+func (g *Grid) Box(x, y, w, h int, role Role) {
+	if w < 2 || h < 2 {
+		return
+	}
+	right, bottom := x+w-1, y+h-1
+	rule := func(y, x int, s string) { g.put(y, x, Cell{Text: s, Width: 1, Role: role}) }
+	for i := x + 1; i < right; i++ {
+		rule(y, i, "─")
+		rule(bottom, i, "─")
+	}
+	for j := y + 1; j < bottom; j++ {
+		rule(j, x, "│")
+		rule(j, right, "│")
+	}
+	rule(y, x, "┌")
+	rule(y, right, "┐")
+	rule(bottom, x, "└")
+	rule(bottom, right, "┘")
 }
 
 // Cell returns the cell at column x of row y.
