@@ -123,7 +123,7 @@ The input is a comma-separated list of Line Numbers and ranges, with no spaces, 
 
 On commit, the whole input is checked before anything is copied:
 
-- Malformed input, such as `3-`, `,,` or `0`, shows `invalid input`. A number above the top row shows `no line N`. Either way nothing is copied and the overlay stays open, so you can fix the input. The error goes away on your next edit.
+- Malformed input, such as `3-`, `,,` or `0`, shows `invalid input`. A number above the top row shows `no line N`. A selection of only blank rows shows `nothing to copy`. In each case nothing is copied and the overlay stays open, so you can fix the input. The error goes away on your next edit.
 - Empty input does nothing.
 
 What gets copied:
@@ -152,7 +152,7 @@ herdr handles its prefix and keybindings before the overlay sees them, so your y
 
 ### Messages
 
-In these states nothing can be selected, and any key closes the overlay:
+In these states nothing can be selected, and any key closes the overlay. Errors are shown in bold red; `no matches` and `nothing to copy` are not errors and are shown plain:
 
 | Status row | Meaning |
 |---|---|

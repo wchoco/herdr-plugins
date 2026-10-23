@@ -103,3 +103,28 @@ func TestMessageRenderGoldens(t *testing.T) {
 		})
 	}
 }
+
+func TestLineModeBlankSelectionIsAnInputErrorAndStaysOpen(t *testing.T) {
+	// Lines 2 and 3 are blank, the second only spaces. Each commit key
+	// (copy, joined, paste) shows the error; Ctrl-U and 1 then copy Line 1.
+	scr := screenOf("two", "", "   ", "one")
+	for _, commit := range []string{"\r", "\n", "\x1b\r"} {
+		c := &calls{}
+		term := runPaste(t, session.ModeLine, scr, "", c, "3-2", commit)
+		if len(c.log) != 0 {
+			t.Errorf("%q: copied %q", commit, c.log)
+		}
+		if got := statusRow(t, term); got != "LINE  3-2  nothing to copy" {
+			t.Errorf("%q: status row %q", commit, got)
+		}
+		g := term.frames[len(term.frames)-1]
+		if r := g.Cell(g.H-1, len("LINE  3-2  ")).Role; r != render.Error {
+			t.Errorf("%q: error text has role %d", commit, r)
+		}
+		c = &calls{}
+		runPaste(t, session.ModeLine, scr, "", c, "3-2", commit, "\x15", "1\r")
+		if len(c.log) != 1 || c.log[0] != "copy one" {
+			t.Errorf("%q: got %q, want copy one", commit, c.log)
+		}
+	}
+}

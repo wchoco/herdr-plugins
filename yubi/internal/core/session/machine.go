@@ -217,6 +217,10 @@ func (m *Machine) commit(joined, paste bool) []Action {
 		m.err = err.Error()
 		return []Action{Redraw{}}
 	}
+	if m.blank(rows) {
+		m.err = "nothing to copy"
+		return []Action{Redraw{}}
+	}
 	text := line.Copy(m.scr, rows)
 	if joined {
 		text = line.JoinedCopy(m.scr, rows, m.set.Separator)
@@ -225,6 +229,17 @@ func (m *Machine) commit(joined, paste bool) []Action {
 		return []Action{Paste{Text: text}}
 	}
 	return []Action{Copy{Text: text}}
+}
+
+// blank reports whether every one of rows is blank, so the selection has
+// no text to copy.
+func (m *Machine) blank(rows []int) bool {
+	for _, r := range rows {
+		if strings.TrimSpace(m.scr.Rows[r].Text()) != "" {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *Machine) selection() ([]int, error) {
