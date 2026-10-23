@@ -39,6 +39,8 @@ type Machine struct {
 	input   string // Line Mode input typed so far
 	err     string // input error shown next to the input until the next key
 	message string // when set, a message-only state: nothing is selectable
+
+	hint *hintState // set in Hint Mode
 }
 
 // NewLine starts Line Mode on scr in a w x h overlay. The status row is the
@@ -65,15 +67,16 @@ func start(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 
 func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	switch cfg.Mode {
-	case ModeLine:
-	case ModeHint:
-		return newMessage("hint mode is not available yet", w, h)
+	case ModeLine, ModeHint:
 	default:
 		return newMessage("unknown mode "+strconv.Quote(string(cfg.Mode)), w, h)
 	}
 	ansi, err := src.ReadVisible(ctx, cfg.Target, FormatANSI)
 	if err != nil {
 		return newMessage("cannot read target: "+err.Error(), w, h)
+	}
+	if cfg.Mode == ModeHint {
+		return NewHint(screen.ParseANSI(ansi), w, h)
 	}
 	return NewLine(screen.ParseANSI(ansi), w, h)
 }
@@ -105,30 +108,54 @@ func (m *Machine) Key(k keys.Key) []Action {
 	if m.message != "" {
 		return []Action{Exit{}}
 	}
+	if m.hint != nil {
+		return m.hint.key(k)
+	}
 	switch {
 	case k == keys.Key{Code: keys.Escape}, k == keys.Key{Code: 'c', Mod: keys.Ctrl}:
 		return []Action{Exit{}}
-	case k.Mod == 0 && k.Code >= '0' && k.Code <= '9':
-		m.input += string(k.Code)
-		m.err = ""
-		return []Action{Redraw{}}
+	case k.Mod == 0 && (k.Code >= '0' && k.Code <= '9' || k.Code == '-' || k.Code == ','):
+		return m.edit(m.input + string(k.Code))
+	case k == keys.Key{Code: keys.Backspace}:
+		if m.input == "" {
+			return nil
+		}
+		return m.edit(m.input[:len(m.input)-1])
+	case k == keys.Key{Code: 'u', Mod: keys.Ctrl}:
+		return m.edit("")
 	case k == keys.Key{Code: keys.Enter}:
 		return m.commit()
 	}
 	return nil
 }
 
+// edit replaces the Line Mode input; any shown error goes away.
+func (m *Machine) edit(input string) []Action {
+	m.input = input
+	m.err = ""
+	return []Action{Redraw{}}
+}
+
+// commit validates the whole input and copies the selected rows, or shows
+// why it cannot. Empty input is a no-op.
 func (m *Machine) commit() []Action {
 	if m.input == "" {
 		return nil
 	}
-	n, _ := strconv.Atoi(m.input)
-	row, ok := m.num.Row(n)
-	if !ok {
-		m.err = "no line " + m.input
+	rows, err := m.selection()
+	if err != nil {
+		m.err = err.Error()
 		return []Action{Redraw{}}
 	}
-	return []Action{Copy{Text: line.Text(m.scr, row)}}
+	return []Action{Copy{Text: line.Copy(m.scr, rows)}}
+}
+
+func (m *Machine) selection() ([]int, error) {
+	ranges, err := line.Parse(m.input)
+	if err != nil {
+		return nil, err
+	}
+	return m.num.Select(ranges)
 }
 
 // Frame renders the current state.
@@ -138,29 +165,41 @@ func (m *Machine) Frame() *render.Grid {
 		return g
 	}
 	status := m.h - 1
-	if m.message == "" {
+	if m.message == "" && m.hint != nil {
+		m.hint.draw(g, m.scr, status)
+	} else if m.message == "" {
 		labelWidth := len(strconv.Itoa(m.num.Max()))
 		for y := 0; y < status && y < len(m.scr.Rows); y++ {
 			g.DrawRow(y, 0, m.scr.Rows[y])
+		}
+		for _, y := range m.num.Rows(line.Preview(m.input)) {
+			g.Select(y)
+		}
+		for y := 0; y < status && y < len(m.scr.Rows); y++ {
 			if n := m.num.Of(y); n > 0 {
 				g.Label(y, 0, padLeft(strconv.Itoa(n), labelWidth), render.LineNumber)
 			}
 		}
 	}
 	g.Fill(status, 0, m.w, render.Status)
-	g.Label(status, 0, m.statusText(), render.Status)
+	text, errText := m.statusText()
+	g.Label(status, 0, text, render.Status)
+	if errText != "" {
+		// The status text is ASCII in Line Mode, so its width is its length.
+		g.Label(status, len(text)+2, errText, render.Error)
+	}
 	return g
 }
 
-func (m *Machine) statusText() string {
+// statusText returns the status row's text and the error shown after it.
+func (m *Machine) statusText() (text, errText string) {
 	if m.message != "" {
-		return m.message
+		return m.message, ""
 	}
-	s := "LINE  " + m.input
-	if m.err != "" {
-		s += "  " + m.err
+	if m.hint != nil {
+		return m.hint.status(), ""
 	}
-	return s
+	return "LINE  " + m.input, m.err
 }
 
 func padLeft(s string, w int) string {

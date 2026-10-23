@@ -1,0 +1,30 @@
+text:
+user@host:a/proj$ git push                                                      |
+remote: Create a pull request:                                                  |
+remote:   zttps://github.com/wchoco/herdr-plugins/pull/new/feat                 |
+To github.com:rchoco/herdr-plugins.git                                          |
+see sttps://example.com/docs and sttps://example.com/docs again                 |
+nothing to hint on this row                                                     |
+user@host:a/proj$ go build e/...                                                |
+w/yubi/internal/core/hint/hint.go:12:3: undefined: x                            |
+log written to qtmp/yubi/build.log and f/proj/out.txt                           |
+日本語 dvar/log/syslog 漢字                                                     |
+docs again: sttps://example.com/docs                                            |
+user@host:a/proj$                                                               |
+                                                                                |
+HINT                                                                            |
+style:
+ddddddddddhuuuuuuddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|
+ddddddddddhuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuddddddddddddddddd|
+ddddddddddddddhuuuuuuuuuuuuuuuuuuuuuuudddddddddddddddddddddddddddddddddddddddddd|
+ddddhuuuuuuuuuuuuuuuuuuuuuuudddddhuuuuuuuuuuuuuuuuuuuuuuuddddddddddddddddddddddd|
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|
+ddddddddddhuuuuuuddddddddddhuuuudddddddddddddddddddddddddddddddddddddddddddddddd|
+huuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuddddddddddddddddddddddddddddddddddddddddddddddd|
+dddddddddddddddhuuuuuuuuuuuuuuuuuudddddhuuuuuuuuuuuuuddddddddddddddddddddddddddd|
+dddddddhuuuuuuuuuuuuuudddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|
+ddddddddddddhuuuuuuuuuuuuuuuuuuuuuuudddddddddddddddddddddddddddddddddddddddddddd|
+ddddddddddhuuuuuuddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd|
+ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss|

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -132,6 +133,121 @@ func TestLineModeNumberAboveTopRowCopiesNothing(t *testing.T) {
 	}
 }
 
+func TestLineModeRangesInEitherOrderCopyTheSameRows(t *testing.T) {
+	want := "日本語のテキスト: wide glyphs\nmixed ASCII 漢字 and かな, then a URL https://example.com/路径\ntruecolor 色 and 256-colour"
+	for _, in := range []string{"6-4\r", "4-6\r", "4,6-5,4\r"} {
+		s := run(t, session.ModeLine, "cjk", nil, in)
+		if !reflect.DeepEqual(s.clip.copies, []string{want}) {
+			t.Errorf("%q: copies %q", in, s.clip.copies)
+		}
+	}
+}
+
+func TestLineModeNumbersAndRangesCopyInScreenOrder(t *testing.T) {
+	s := run(t, session.ModeLine, "cjk", nil, "1,7,3-2\r")
+	want := "user@host:~/proj$ cat notes.txt\nemoji 🎉 party\n全角 reverse\nuser@host:~/proj$"
+	if !reflect.DeepEqual(s.clip.copies, []string{want}) {
+		t.Errorf("copies %q, want %q", s.clip.copies, want)
+	}
+}
+
+func TestLineModeInvalidInputShowsErrorAndStaysOpen(t *testing.T) {
+	tests := []struct {
+		input, status string
+	}{
+		{"3-\r", "LINE  3-  invalid input"},
+		{",,\r", "LINE  ,,  invalid input"},
+		{"0\r", "LINE  0  invalid input"},
+		{"8\r", "LINE  8  no line 8"},
+		{"1,3-9\r", "LINE  1,3-9  no line 9"},
+	}
+	for _, tt := range tests {
+		s := run(t, session.ModeLine, "cjk", nil, tt.input)
+		if len(s.clip.copies) != 0 {
+			t.Errorf("%q: copied %q", tt.input, s.clip.copies)
+		}
+		if got := statusRow(t, s.term); got != tt.status {
+			t.Errorf("%q: status row %q, want %q", tt.input, got, tt.status)
+		}
+	}
+}
+
+func TestLineModeFixingInvalidInputThenCopies(t *testing.T) {
+	// Backspace removes the dangling "-" of "3-" after the error.
+	s := run(t, session.ModeLine, "cjk", nil, "3-\r", "\x7f", "\r")
+	if want := []string{"emoji 🎉 party"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies %q, want %q", s.clip.copies, want)
+	}
+}
+
+func TestLineModeEditingKeys(t *testing.T) {
+	tests := []struct {
+		name  string
+		reads []string
+		want  string // status row after the reads
+	}{
+		{name: "backspace deletes one character", reads: []string{"3-5", "\x7f"}, want: "LINE  3-"},
+		{name: "backspace on empty input", reads: []string{"\x7f"}, want: "LINE"},
+		{name: "ctrl-u clears the input", reads: []string{"3-5,1", "\x15"}, want: "LINE"},
+		{name: "kitty ctrl-u", reads: []string{"3", "\x1b[117;5u"}, want: "LINE"},
+		{name: "other keys are ignored", reads: []string{"3", "x", " ", "\x1b3", "\x1b[A", "\t", "-4"}, want: "LINE  3-4"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := run(t, session.ModeLine, "cjk", nil, tt.reads...)
+			if s.err != nil || len(s.clip.copies) != 0 {
+				t.Errorf("err %v, copies %q", s.err, s.clip.copies)
+			}
+			if got := statusRow(t, s.term); got != tt.want {
+				t.Errorf("status row %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLineModePreviewUpdatesOnEveryKeystroke(t *testing.T) {
+	// cjk: Line 7 is row 0 ... Line 1 is row 6.
+	s := run(t, session.ModeLine, "cjk", nil, "5", "-", "3", ",", "7", "\x7f", "9", "\x15")
+	want := [][]int{
+		nil,          // first frame
+		{2},          // 5
+		{2},          // 5-
+		{2, 3, 4},    // 5-3
+		{2, 3, 4},    // 5-3,
+		{0, 2, 3, 4}, // 5-3,7
+		{2, 3, 4},    // 5-3,
+		{2, 3, 4},    // 5-3,9 (9 is not on screen)
+		nil,          // cleared
+	}
+	if len(s.term.frames) != len(want) {
+		t.Fatalf("got %d frames, want %d", len(s.term.frames), len(want))
+	}
+	for i, f := range s.term.frames {
+		if got := selectedRows(f); !reflect.DeepEqual(got, want[i]) {
+			t.Errorf("frame %d: selected rows %v, want %v", i, got, want[i])
+		}
+	}
+}
+
+// selectedRows returns the rows whose last cell is drawn as selected: the
+// selection spans the full width.
+func selectedRows(g *render.Grid) []int {
+	var rows []int
+	for y := 0; y < g.H; y++ {
+		if g.Cell(y, g.W-1).Role == render.Selected {
+			rows = append(rows, y)
+		}
+	}
+	return rows
+}
+
+func TestLineModeIgnoredKeyDoesNotClose(t *testing.T) {
+	s := run(t, session.ModeLine, "cjk", nil, "x", "1\r")
+	if want := []string{"user@host:~/proj$"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies %q, want %q", s.clip.copies, want)
+	}
+}
+
 func TestCancelKeysExitWithoutCopy(t *testing.T) {
 	for _, key := range []string{"\x03", "\x1b[27u", "\x1b[99;5u"} {
 		s := run(t, session.ModeLine, "cjk", nil, "3", key, "\r")
@@ -169,6 +285,109 @@ func TestReadFailureIsShownAndAnyKeyCloses(t *testing.T) {
 	}
 }
 
+// manyPaths is a hand-written screen of 30 distinct paths, one per row, so
+// the top Matches get two-letter Hints from the default alphabet.
+func manyPaths() fixture.Capture {
+	var rows []string
+	for i := 1; i <= 30; i++ {
+		rows = append(rows, fmt.Sprintf("file p/%02d", i))
+	}
+	s := strings.Join(rows, "\n")
+	return fixture.Capture{Name: "many", Text: s + "\n", ANSI: strings.ReplaceAll(s, "\n", "\r\n")}
+}
+
+func runCapture(t *testing.T, mode session.Mode, c fixture.Capture, reads ...string) scenario {
+	t.Helper()
+	s := scenario{
+		src:  &fakeSource{captures: map[string]fixture.Capture{"w1:p1": c}},
+		clip: &fakeClipboard{},
+		term: newTerminal(120, 39, reads...),
+	}
+	s.err = session.Run(context.Background(),
+		session.Config{Mode: mode, Target: "w1:p1"},
+		session.Deps{Source: s.src, Clipboard: s.clip, Terminal: s.term})
+	return s
+}
+
+func TestHintModeTypingAHintCopiesItsMatchOnceAndExits(t *testing.T) {
+	// 30 unique texts: p/01 at the top gets the last two-letter Hint, "nq".
+	// "x" continues no Hint and is ignored; the read after the copy is
+	// never seen because Run has exited.
+	s := runCapture(t, session.ModeHint, manyPaths(), "n", "x", "q", "a")
+	if s.err != nil {
+		t.Fatal(s.err)
+	}
+	if want := []string{"p/01"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies: got %q, want %q", s.clip.copies, want)
+	}
+	if got := statusRow(t, s.term); got != "HINT  n" {
+		t.Errorf("status row %q", got)
+	}
+}
+
+func TestHintModeSharedHintCopiesDuplicatedURL(t *testing.T) {
+	// The URL printed three times shares the second-shortest Hint: the
+	// prompt path on the last row is nearer the bottom.
+	s := run(t, session.ModeHint, "links", nil, "s")
+	if want := []string{"https://example.com/docs"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies: got %q, want %q", s.clip.copies, want)
+	}
+}
+
+func TestHintModeBackspaceAndCancel(t *testing.T) {
+	// Backspace drops the typed "n", so "a" completes the bottom Hint.
+	s := runCapture(t, session.ModeHint, manyPaths(), "n", "\x7f", "a")
+	if want := []string{"p/30"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies: got %q, want %q", s.clip.copies, want)
+	}
+	for _, key := range []string{"\x1b", "\x03"} {
+		s := runCapture(t, session.ModeHint, manyPaths(), "n", key, "q")
+		if s.err != nil || len(s.clip.copies) != 0 {
+			t.Errorf("%q: err %v, copies %q", key, s.err, s.clip.copies)
+		}
+	}
+}
+
+func TestHintModeNoMatches(t *testing.T) {
+	c := fixture.Capture{Text: "hello\nworld\n", ANSI: "hello\r\nworld"}
+	s := runCapture(t, session.ModeHint, c, "a", "s")
+	if got := statusRow(t, s.term); got != "no matches" {
+		t.Errorf("status row %q", got)
+	}
+	if len(s.clip.copies) != 0 || len(s.term.frames) != 1 {
+		t.Errorf("copies %q, %d frames", s.clip.copies, len(s.term.frames))
+	}
+}
+
+func TestHintModeBlankScreenHasNothingToCopy(t *testing.T) {
+	s := runCapture(t, session.ModeHint, fixture.Capture{}, "a")
+	if got := statusRow(t, s.term); got != "nothing to copy" {
+		t.Errorf("status row %q", got)
+	}
+}
+
+func TestHintRenderGoldens(t *testing.T) {
+	tests := []struct {
+		name  string
+		c     fixture.Capture
+		w, h  int
+		typed string
+	}{
+		{name: "hint-links", c: fixture.Load(t, "links"), w: 80, h: 14},
+		{name: "hint-many", c: manyPaths(), w: 20, h: 31},
+		{name: "hint-many-typed", c: manyPaths(), w: 20, h: 31, typed: "n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := session.NewHint(screen.ParseANSI(tt.c.ANSI), tt.w, tt.h)
+			for _, r := range tt.typed {
+				m.Key(keyOf(r))
+			}
+			golden(t, tt.name, m.Frame().Dump())
+		})
+	}
+}
+
 func TestRenderGoldens(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -179,6 +398,10 @@ func TestRenderGoldens(t *testing.T) {
 		{name: "line-cjk", capture: "cjk", w: 80, h: 12, typed: "3"},
 		{name: "line-shell-clipped", capture: "shell", w: 60, h: 12},
 		{name: "line-wrap", capture: "wrap", w: 120, h: 10},
+		{name: "line-cjk-preview-partial", capture: "cjk", w: 80, h: 12, typed: "5-"},
+		{name: "line-cjk-preview", capture: "cjk", w: 80, h: 12, typed: "6-4,1"},
+		{name: "line-cjk-error-malformed", capture: "cjk", w: 80, h: 12, typed: "6-4,\r"},
+		{name: "line-cjk-error-out-of-range", capture: "cjk", w: 80, h: 12, typed: "2-9\r"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
