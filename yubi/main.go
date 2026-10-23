@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/session"
 	"github.com/wchoco/herdr-plugins/yubi/internal/herdr"
 )
@@ -67,7 +68,7 @@ func action(mode session.Mode) error {
 	client := herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH"))
 	return launch(ctx, client, os.Getenv("HERDR_PLUGIN_STATE_DIR"), focused, mode,
 		func(ctx context.Context, target string) (string, error) {
-			return client.OpenOverlay(ctx, pluginID, target, mode)
+			return client.OpenOverlay(ctx, pluginID, target, mode, layoutEnv(ctx, client, target))
 		})
 }
 
@@ -87,6 +88,7 @@ func ui() error {
 			Overlay:   os.Getenv("HERDR_PANE_ID"),
 			Tab:       os.Getenv("HERDR_TAB_ID"),
 			Workspace: os.Getenv("HERDR_WORKSPACE_ID"),
+			Layout:    uiLayout(),
 		},
 		session.Deps{
 			Source:    client,
@@ -94,4 +96,32 @@ func ui() error {
 			Terminal:  tty,
 			Events:    client,
 		})
+}
+
+// layoutEnvVar hands the tab layout captured by action to ui.
+const layoutEnvVar = "YUBI_LAYOUT"
+
+// layoutEnv captures the layout of the Target Pane's tab before the
+// overlay opens and returns it as ui's environment. Without it ui draws
+// the Target from the overlay's corner, so a failure is only logged.
+func layoutEnv(ctx context.Context, client *herdr.Client, target string) map[string]string {
+	tab, err := client.Layout(ctx, target)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "yubi: cannot capture the tab layout:", err)
+		return nil
+	}
+	return map[string]string{layoutEnvVar: layout.Encode(tab)}
+}
+
+// uiLayout returns the layout action handed over, or nil.
+func uiLayout() *layout.Tab {
+	s := os.Getenv(layoutEnvVar)
+	if s == "" {
+		return nil
+	}
+	tab, err := layout.Decode(s)
+	if err != nil {
+		return nil
+	}
+	return tab
 }

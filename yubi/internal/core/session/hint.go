@@ -5,6 +5,7 @@ import (
 
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/hint"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/line"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/screen"
@@ -20,9 +21,18 @@ type hintState struct {
 // NewHint starts Hint Mode on scr in a w x h overlay. Only the rows above
 // the status row are displayed, so only they get Hints.
 func NewHint(scr screen.Screen, w, h int) *Machine {
-	m := &Machine{w: w, h: h, scr: scr}
-	displayed := scr.Rows[:max(min(h-1, len(scr.Rows)), 0)]
-	if line.NewNumbering(scr, h-1).Max() == 0 {
+	return NewHintAt(scr, layout.Place(nil, w, h))
+}
+
+// NewHintAt starts Hint Mode on scr with the Target Pane and the other
+// panes placed by p. Rows clipped at the bottom get no Hints; Matches are
+// found on whole rows, so a Match clipped on the right still copies its
+// full text.
+func NewHintAt(scr screen.Screen, p layout.Placement) *Machine {
+	m := &Machine{w: p.W, h: p.H, scr: scr, place: p}
+	n := displayedRows(p)
+	displayed := scr.Rows[:max(min(n, len(scr.Rows)), 0)]
+	if line.NewNumbering(scr, n).Max() == 0 {
 		m.message = "nothing to copy"
 		return m
 	}
@@ -64,25 +74,44 @@ func (s *hintState) key(k keys.Key) []Action {
 	return nil
 }
 
-// draw draws the displayed rows faint, Matches underlined, and the Hints
-// that still fit the typed prefix over the first cells of their Matches.
-func (s *hintState) draw(g *render.Grid, scr screen.Screen, displayed int) {
+// draw draws the displayed rows of the Target Pane faint in its grid t,
+// Matches underlined where visible, and the Hints that still fit the typed
+// prefix over the first cells of their Matches. A Hint that does not fit
+// before the grid's right edge, because its Match starts too far right or
+// off-screen, is right-aligned to the edge instead; several on one row go
+// leftward from the edge in Match order.
+func (s *hintState) draw(g *render.Grid, scr screen.Screen, t layout.Rect, displayed int) {
 	for y := 0; y < displayed; y++ {
 		if y < len(scr.Rows) {
-			g.DrawRow(y, 0, scr.Rows[y])
+			drawRow(g, t.Y+y, t.X, t.Width, scr.Rows[y])
 		}
-		g.Restyle(y, 0, g.W, render.Dim)
+		g.Restyle(t.Y+y, t.X, t.Width, render.Dim)
 	}
 	for _, m := range s.matches {
-		g.Restyle(m.Row, m.Col, m.Width, render.Match)
+		if m.Col < t.Width {
+			g.Restyle(t.Y+m.Row, t.X+m.Col, min(m.Width, t.Width-m.Col), render.Match)
+		}
 	}
+	edge := map[int]int{} // row -> where the next right-aligned Hint ends
 	for _, m := range s.matches {
 		h, ok := s.hints[m.Text]
-		if !ok || !strings.HasPrefix(h, s.typed) {
+		if !ok {
 			continue
 		}
-		g.Label(m.Row, m.Col, s.typed, render.HintTyped)
-		g.Label(m.Row, m.Col+len(s.typed), h[len(s.typed):], render.Hint)
+		x := m.Col
+		if x+len(h) > t.Width {
+			end, ok := edge[m.Row]
+			if !ok {
+				end = t.Width
+			}
+			x = end - len(h)
+			edge[m.Row] = x
+		}
+		if x < 0 || !strings.HasPrefix(h, s.typed) {
+			continue
+		}
+		g.Label(t.Y+m.Row, t.X+x, s.typed, render.HintTyped)
+		g.Label(t.Y+m.Row, t.X+x+len(s.typed), h[len(s.typed):], render.Hint)
 	}
 }
 

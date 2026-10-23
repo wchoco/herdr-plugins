@@ -1,0 +1,22 @@
+text:
+user@host:q/proj$ git push              |
+remote: Create a pull request:          |
+remote:   rttps://github.com/wchoco/herd|
+To github.com:echoco/herdr-plugins.git  |
+see wttps://example.com/docs and wttps:/|
+nothing to hint on this row             |
+user@host:q/proj$ go build f/...        |
+d/yubi/internal/core/hint/hint.go:12:3: |
+log written to stmp/yubi/build.log and a|
+HINT                                    |
+style:
+ddddddddddhuuuuuuddddddddddddddddddddddd|
+dddddddddddddddddddddddddddddddddddddddd|
+ddddddddddhuuuuuuuuuuuuuuuuuuuuuuuuuuuuu|
+ddddddddddddddhuuuuuuuuuuuuuuuuuuuuuuudd|
+ddddhuuuuuuuuuuuuuuuuuuuuuuudddddhuuuuuu|
+dddddddddddddddddddddddddddddddddddddddd|
+ddddddddddhuuuuuuddddddddddhuuuudddddddd|
+huuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuddddddd|
+dddddddddddddddhuuuuuuuuuuuuuuuuuudddddh|
+ssssssssssssssssssssssssssssssssssssssss|

@@ -82,7 +82,7 @@ func TestSelectReversesTheWholeRowOverItsOriginalStyle(t *testing.T) {
 	g := render.NewGrid(6, 1)
 	g.DrawRow(0, 0, row("a\x1b[31m漢\x1b[0mb"))
 	g.Label(0, 0, "2", render.LineNumber)
-	g.Select(0)
+	g.Select(0, 0, 6)
 	want := dump("text:", "2漢b  |", "style:", "nrrrrr|")
 	if got := g.Dump(); got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
@@ -91,6 +91,40 @@ func TestSelectReversesTheWholeRowOverItsOriginalStyle(t *testing.T) {
 	wantEnc := "\x1b[1;1H\x1b[0;1;30;46m2\x1b[0;31;7m漢\x1b[0;7mb  \x1b[0m"
 	if got := string(g.Encode()); got != wantEnc {
 		t.Errorf("got  %q\nwant %q", got, wantEnc)
+	}
+}
+
+func TestSelectStopsAtTheGivenSpan(t *testing.T) {
+	// A split Target Pane's selection must not spill into its neighbours.
+	g := render.NewGrid(8, 1)
+	g.DrawRow(0, 2, row("ab"))
+	g.Select(0, 2, 4)
+	want := dump("text:", "  ab    |", "style:", "..rrrr..|")
+	if got := g.Dump(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestBoxDrawsThinFaintRulesClippedToTheGrid(t *testing.T) {
+	g := render.NewGrid(6, 4)
+	g.DrawRow(1, 0, row("ab"))
+	g.Box(-1, -1, 4, 4, render.Rule) // corner off the grid: only its right and bottom edges show
+	g.Box(3, 0, 3, 4, render.Rule)
+	want := dump("text:",
+		"  │┌─┐|",
+		"ab││ │|",
+		"──┘│ │|",
+		"   └─┘|",
+		"style:",
+		"..bbbb|",
+		"..bb.b|",
+		"bbbb.b|",
+		"...bbb|")
+	if got := g.Dump(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+	if !strings.Contains(string(g.Encode()), "\x1b[0;2m│") {
+		t.Errorf("rules are not faint: %q", g.Encode())
 	}
 }
 

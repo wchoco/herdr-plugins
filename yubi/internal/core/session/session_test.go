@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
@@ -25,11 +26,24 @@ var update = flag.Bool("update", false, "rewrite render goldens")
 type fakeSource struct {
 	captures map[string]fixture.Capture // by pane id
 	err      error
-	reads    []string
+	paneErr  map[string]error // a read of this pane fails
+	hang     map[string]bool  // a read of this pane blocks until its context is done
+
+	mu    sync.Mutex // reads of other panes run in the background
+	reads []string
 }
 
-func (s *fakeSource) ReadVisible(_ context.Context, pane string, f session.Format) (string, error) {
+func (s *fakeSource) ReadVisible(ctx context.Context, pane string, f session.Format) (string, error) {
+	s.mu.Lock()
 	s.reads = append(s.reads, pane)
+	s.mu.Unlock()
+	if s.hang[pane] {
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
+	if err := s.paneErr[pane]; err != nil {
+		return "", err
+	}
 	if s.err != nil {
 		return "", s.err
 	}

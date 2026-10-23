@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 )
 
@@ -76,6 +77,10 @@ type Config struct {
 	// The overlay's own pane, tab and workspace ids. Focus moving off any
 	// of them ends the session; an empty id is not checked.
 	Overlay, Tab, Workspace string
+
+	// Layout is the tab layout captured before the overlay opened; nil
+	// draws the Target Pane from the overlay's corner and no other panes.
+	Layout *layout.Tab
 }
 
 // Deps are the adapters a session runs with.
@@ -110,6 +115,10 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 	}
 	if m == nil {
 		m = start(ctx, cfg, d.Source, w, h)
+	}
+	var others <-chan neighbour
+	if m.message == "" {
+		others = readOthers(ctx, d.Source, m.place.Others)
 	}
 	if err := d.Terminal.Draw(m.Frame()); err != nil {
 		return err
@@ -175,6 +184,8 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 			if !ok || apply(m.Event(ev)) {
 				return nil
 			}
+		case n := <-others:
+			apply(m.Neighbour(n.pane, n.scr))
 		case <-d.Terminal.Resized():
 			w, h, err := d.Terminal.Size()
 			if err != nil || apply(m.Resize(w, h)) {

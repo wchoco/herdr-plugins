@@ -56,6 +56,12 @@ The re-launch captures (`pane-get*`, `plugin-pane-close*`) need any pane and an 
 python3 yubi/testdata/herdr-0.9.5/scripts/capture-relaunch.py <pane-id> <overlay-pane-id>
 ```
 
+The layout captures (`pane-layout-*`) need a tab split three ways (`herdr pane split <p1> --direction right`, then `herdr pane split <p2> --direction down`) and no overlay open; `pane-layout-split3` asks about the top right pane, which is not the focused one:
+
+```sh
+python3 yubi/testdata/herdr-0.9.5/scripts/capture-layout.py <top-right-pane-id>
+```
+
 ### Event captures: `ndjson/events-*`
 
 Each `ndjson/events-<scenario>.ndjson` holds yubi's `events.subscribe` request line, herdr's response line and every event line pushed after one session change; `events-<scenario>.ids.json` names that scenario's workspace, tab, Target Pane, sibling and overlay. The overlay is a stand-in plugin (`scripts/probe-plugin`) whose pane only sleeps. With the throwaway server running:
