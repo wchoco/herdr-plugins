@@ -7,6 +7,7 @@ import (
 
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/config"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/line"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/screen"
@@ -48,16 +49,25 @@ type Machine struct {
 	pasteFailed bool // message reports a failed paste; stale exits wait for a key
 
 	hint *hintState // set in Hint Mode
+
+	place  layout.Placement         // where the Target and the other panes are drawn
+	others map[string]screen.Screen // other panes read so far, by pane id
 }
 
 // NewLine starts Line Mode on scr in a w x h overlay. The status row is the
 // overlay's bottom row, so the rows above it are the rows yubi displays.
 func NewLine(scr screen.Screen, w, h int) *Machine {
-	return newLine(scr, w, h, config.Default())
+	return newLine(scr, layout.Place(nil, w, h), config.Default())
 }
 
-func newLine(scr screen.Screen, w, h int, set config.Config) *Machine {
-	m := &Machine{w: w, h: h, scr: scr, set: set, num: line.NewNumbering(scr, h-1)}
+// NewLineAt starts Line Mode on scr with the Target Pane and the other
+// panes placed by p.
+func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
+	return newLine(scr, p, config.Default())
+}
+
+func newLine(scr screen.Screen, p layout.Placement, set config.Config) *Machine {
+	m := &Machine{w: p.W, h: p.H, scr: scr, set: set, place: p, num: line.NewNumbering(scr, displayedRows(p))}
 	if m.num.Max() == 0 {
 		m.message = "nothing to copy"
 	}
@@ -93,10 +103,11 @@ func build(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	if err != nil {
 		return newMessage("cannot read target: "+err.Error(), w, h)
 	}
+	p := layout.Place(targetTab(cfg), w, h)
 	if cfg.Mode == ModeHint {
-		return newHint(screen.ParseANSI(ansi), w, h, set)
+		return newHint(screen.ParseANSI(ansi), p, set)
 	}
-	return newLine(screen.ParseANSI(ansi), w, h, set)
+	return newLine(screen.ParseANSI(ansi), p, set)
 }
 
 // Fail switches to a message-only state showing msg.
@@ -226,19 +237,24 @@ func (m *Machine) Frame() *render.Grid {
 		return g
 	}
 	status := m.h - 1
+	if m.message == "" {
+		m.drawOthers(g)
+	}
+	t := m.place.Target
 	if m.message == "" && m.hint != nil {
-		m.hint.draw(g, m.scr, status)
+		m.hint.draw(g, m.scr, t, displayedRows(m.place))
 	} else if m.message == "" {
 		labelWidth := len(strconv.Itoa(m.num.Max()))
-		for y := 0; y < status && y < len(m.scr.Rows); y++ {
-			g.DrawRow(y, 0, m.scr.Rows[y])
+		shown := min(displayedRows(m.place), len(m.scr.Rows))
+		for y := 0; y < shown; y++ {
+			drawRow(g, t.Y+y, t.X, t.Width, m.scr.Rows[y])
 		}
 		for _, y := range m.num.Rows(line.Preview(m.input)) {
-			g.Select(y)
+			g.Select(t.Y+y, t.X, t.Width)
 		}
-		for y := 0; y < status && y < len(m.scr.Rows); y++ {
+		for y := 0; y < shown; y++ {
 			if n := m.num.Of(y); n > 0 {
-				g.Label(y, 0, padLeft(strconv.Itoa(n), labelWidth), render.LineNumber)
+				g.Label(t.Y+y, t.X, padLeft(strconv.Itoa(n), labelWidth), render.LineNumber)
 			}
 		}
 	}

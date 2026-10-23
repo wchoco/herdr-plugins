@@ -1,0 +1,38 @@
+text:
+7ser@host:~/proj$ cat notes.txt       ││user@host:~/proj$ git status         |
+6 本語のテキスト: wide glyphs         ││On branch main                       |
+5ixed ASCII 漢字 and かな, then a URL ││Changes not staged for commit:       |
+4ruecolor 色 and 256-colour           ││  (use "git add <file>..." to update |
+3moji 🎉 party                        ││        modified:   yubi/main.go     |
+2 角 reverse                          ││        modified:   README.md        |
+1ser@host:~/proj$                     ││                                     |
+                                      ││Untracked files:                     |
+                                      ││        yubi/testdata/               |
+                                      ││                                     |
+                                      ││user@host:~/proj$ ls -l              |
+                                      ││total 12                             |
+                                      ││-rw-r--r-- 1 user user 1024 Oct 24 01|
+                                      ││drwxr-xr-x 3 user user 4096 Oct 24 01|
+                                      ││-rwxr-xr-x 1 user user 2048 Oct 24 01|
+                                      ││trailing spaces                      |
+                                      ││                                     |
+LINE  3                                                                      |
+style:
+noooooooo.oooooo......................bbddddddddddddddddddddddddddddddddddddd|
+n.....................................bbddddddddddddddddddddddddddddddddddddd|
+n.....................................bbddddddddddddddddddddddddddddddddddddd|
+nooooooooooo.....oooooooooo...........bbddddddddddddddddddddddddddddddddddddd|
+nrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr.bbddddddddddddddddddddddddddddddddddddd|
+nooo..................................bbddddddddddddddddddddddddddddddddddddd|
+noooooooo.oooooo......................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+......................................bbddddddddddddddddddddddddddddddddddddd|
+sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss|
