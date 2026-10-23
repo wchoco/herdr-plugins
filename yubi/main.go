@@ -56,16 +56,20 @@ func usage() error {
 }
 
 // action runs without a TTY. It opens the overlay over the focused pane,
-// which becomes the Target Pane.
+// which becomes the Target Pane, or, pressed again inside the overlay,
+// toggles it closed or switches its mode (see launch).
 func action(mode session.Mode) error {
-	target := os.Getenv("HERDR_PANE_ID")
-	if target == "" {
+	focused := os.Getenv("HERDR_PANE_ID")
+	if focused == "" {
 		return fmt.Errorf("HERDR_PANE_ID is not set; run yubi from a herdr keybinding")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH")).OpenOverlay(ctx, pluginID, target, mode)
-	return err
+	client := herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH"))
+	return launch(ctx, client, os.Getenv("HERDR_PLUGIN_STATE_DIR"), focused, mode,
+		func(ctx context.Context, target string) (string, error) {
+			return client.OpenOverlay(ctx, pluginID, target, mode)
+		})
 }
 
 // ui is the overlay pane process.

@@ -121,6 +121,52 @@ func TestReadVisibleSocketUnreachable(t *testing.T) {
 	}
 }
 
+func TestExists(t *testing.T) {
+	tests := []struct {
+		capture string
+		pane    string
+		want    bool
+	}{
+		{capture: "pane-get", pane: "w1:p1", want: true},
+		{capture: "pane-get-not-found", pane: "w9:p99", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.capture, func(t *testing.T) {
+			c := herdr.NewClient(replay(t, tt.capture))
+			got, err := c.Exists(context.Background(), tt.pane)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExistsSocketUnreachable(t *testing.T) {
+	c := herdr.NewClient(filepath.Join(t.TempDir(), "missing.sock"))
+	if _, err := c.Exists(context.Background(), "w1:p1"); err == nil {
+		t.Fatal("got no error, want socket unreachable")
+	}
+}
+
+func TestCloseOverlay(t *testing.T) {
+	c := herdr.NewClient(replay(t, "plugin-pane-close"))
+	if err := c.CloseOverlay(context.Background(), "w1:p2"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCloseOverlayNotFound(t *testing.T) {
+	c := herdr.NewClient(replay(t, "plugin-pane-close-not-found"))
+	err := c.CloseOverlay(context.Background(), "w1:p2")
+	var apiErr *herdr.APIError
+	if !errors.As(err, &apiErr) || apiErr.Code != "plugin_pane_not_found" {
+		t.Fatalf("got %v, want a plugin_pane_not_found APIError", err)
+	}
+}
+
 func TestOSC52Copy(t *testing.T) {
 	var out bytes.Buffer
 	if err := herdr.NewOSC52(&out).Copy("emoji 🎉 party"); err != nil {

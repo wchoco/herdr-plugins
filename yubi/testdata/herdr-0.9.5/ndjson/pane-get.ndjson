@@ -1,0 +1,2 @@
+{"id":"1","method":"pane.get","params":{"pane_id":"w1:p1"}}
+{"id":"1","result":{"type":"pane_info","pane":{"pane_id":"w1:p1","terminal_id":"term_65e850dd81bec1","workspace_id":"w1","tab_id":"w1:t1","focused":false,"cwd":"/home/jiji","foreground_cwd":"/home/jiji","agent_status":"unknown","scroll":{"offset_from_bottom":0,"max_offset_from_bottom":0,"viewport_rows":40},"revision":0}}}
