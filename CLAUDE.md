@@ -4,8 +4,8 @@
 
 - Never commit to `main` directly. Branch from the latest `main` as `<type>/<short-kebab-description>` and open a PR into `main`. See `docs/agents/workflow.md`.
 - Every PR that changes anything other than Markdown docs must have a claude-security scan before it is opened. See `docs/agents/workflow.md`.
-- Plugins are versioned per plugin with SemVer and tagged `<plugin-id>/vX.Y.Z` on release. See `docs/agents/versioning.md`.
-- Language: Go. One `go.mod` at the repo root; each plugin lives in `<plugin-id>/` with its own `herdr-plugin.toml`.
+- Plugins are versioned per plugin with SemVer and tagged `<plugin-name>/vX.Y.Z` on release. See `docs/agents/versioning.md`.
+- Language: Go. One `go.mod` at the repo root; each plugin lives in `<plugin-name>/` with its own `herdr-plugin.toml`, whose `id` is `wchoco.<plugin-name>`.
 
 ## Agent skills
 
