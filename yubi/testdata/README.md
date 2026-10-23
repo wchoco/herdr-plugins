@@ -17,6 +17,7 @@ The screen content comes from `scripts/<name>.sh`, sourced by a zsh with the fix
 | `shell` | prompts, VCS status output with colours and tabs, a long listing, written trailing spaces, blank rows |
 | `cjk` | CJK and emoji wide glyphs mixed with ASCII, truecolor and 256-colour SGR, reverse video |
 | `wrap` | a soft-wrapped ASCII URL and a soft-wrapped run of wide glyphs |
+| `links` | Hint Mode input: coloured URLs (one printed three times), absolute, relative and home paths, a path between wide glyphs, a row with no Match |
 
 Re-capture all fixtures whenever `min_herdr_version` is raised, into a new `herdr-<version>/` directory.
 
@@ -34,7 +35,7 @@ herdr server
 In a second terminal with the same environment:
 
 ```sh
-yubi/testdata/herdr-0.9.5/scripts/capture.sh shell cjk wrap
+yubi/testdata/herdr-0.9.5/scripts/capture.sh shell cjk wrap links
 herdr server stop
 ```
 

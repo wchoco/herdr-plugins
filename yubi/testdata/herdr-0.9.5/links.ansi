@@ -1,0 +1,12 @@
+[0m[38;5;2muser@host[0m:[0m[38;5;4m~/proj[0m$ git push
+remote: Create a pull request:
+remote:   [0m[4m[38;5;4mhttps://github.com/wchoco/herdr-plugins/pull/new/feat[0m
+To github.com:wchoco/herdr-plugins.git
+see https://example.com/docs and https://example.com/docs again
+nothing to hint on this row
+[0m[38;5;2muser@host[0m:[0m[38;5;4m~/proj[0m$ go build ./...
+[0m[1m./yubi/internal/core/hint/hint.go:12:3[0m: undefined: x
+log written to /tmp/yubi/build.log and ~/proj/out.txt
+日本語 /var/log/syslog 漢字
+docs again: https://example.com/docs
+[0m[38;5;2muser@host[0m:[0m[38;5;4m~/proj[0m$ 

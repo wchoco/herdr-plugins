@@ -61,6 +61,23 @@ func TestLabelOverWideGlyphHalves(t *testing.T) {
 	}
 }
 
+func TestRestyleCombinesWithOriginalStyle(t *testing.T) {
+	g := render.NewGrid(6, 1)
+	g.DrawRow(0, 0, row("a\x1b[31mbc\x1b[0md"))
+	g.Restyle(0, 0, 6, render.Dim)
+	g.Restyle(0, 1, 2, render.Match)
+	g.Label(0, 1, "h", render.Hint)
+	g.Label(0, 4, "p", render.HintTyped)
+	want := dump("text:", "ahcdp |", "style:", "dhudpd|")
+	if got := g.Dump(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+	wantEnc := "\x1b[1;1H\x1b[0;2ma\x1b[0;1;30;43mh\x1b[0;31;4mc\x1b[0;2md\x1b[0;2;30;43mp\x1b[0;2m \x1b[0m"
+	if got := string(g.Encode()); got != wantEnc {
+		t.Errorf("got  %q\nwant %q", got, wantEnc)
+	}
+}
+
 func TestEncode(t *testing.T) {
 	g := render.NewGrid(5, 2)
 	g.DrawRow(0, 0, row("a\x1b[38;2;1;2;3m漢\x1b[0mb"))

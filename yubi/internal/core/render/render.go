@@ -21,12 +21,24 @@ const (
 	Text       Role = iota // Target Pane text in its original style
 	LineNumber             // a Line Number label: bold black on cyan
 	Status                 // the status row: reverse video
+	Hint                   // a Hint: bold black on yellow
+	HintTyped              // the typed prefix of a Hint: faint black on yellow
+	Match                  // Target Pane text in a Match: original style plus underline
+	Dim                    // Target Pane text outside Matches: original style plus faint
 )
 
 // sgr is the fixed style of each yubi role; Text keeps the cell's original SGR.
 var sgr = map[Role]string{
 	LineNumber: "1;30;46",
 	Status:     "7",
+	Hint:       "1;30;43",
+	HintTyped:  "2;30;43",
+}
+
+// overSGR is added to the original SGR of cells in roles that keep it.
+var overSGR = map[Role]string{
+	Match: "4",
+	Dim:   "2",
 }
 
 // letter is the role's letter in a Dump style map. Text cells are '.' in
@@ -34,6 +46,10 @@ var sgr = map[Role]string{
 var letter = map[Role]byte{
 	LineNumber: 'n',
 	Status:     's',
+	Hint:       'h',
+	HintTyped:  'p',
+	Match:      'u',
+	Dim:        'd',
 }
 
 // Cell is one terminal cell.
@@ -99,6 +115,21 @@ func (g *Grid) Fill(y, x, n int, role Role) {
 	}
 }
 
+// Restyle sets the role of n cells from column x of row y that show
+// Target Pane text, keeping their text and original style. Cells drawn by
+// Label or Fill are left alone.
+func (g *Grid) Restyle(y, x, n int, role Role) {
+	if y < 0 || y >= g.H {
+		return
+	}
+	for i := max(x, 0); i < x+n && i < g.W; i++ {
+		c := &g.cells[y][i]
+		if _, keeps := overSGR[c.Role]; keeps || c.Role == Text {
+			c.Role = role
+		}
+	}
+}
+
 // Cell returns the cell at column x of row y.
 func (g *Grid) Cell(y, x int) Cell { return g.cells[y][x] }
 
@@ -137,6 +168,12 @@ func (g *Grid) clear(y, x int) {
 func (c Cell) style() string {
 	if c.Role == Text {
 		return c.SGR
+	}
+	if over, ok := overSGR[c.Role]; ok {
+		if c.SGR == "" {
+			return over
+		}
+		return c.SGR + ";" + over
 	}
 	return sgr[c.Role]
 }

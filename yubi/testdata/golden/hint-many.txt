@@ -1,0 +1,64 @@
+text:
+file nq01           |
+file nf02           |
+file nd03           |
+file ns04           |
+file na05           |
+file b/06           |
+file y/07           |
+file t/08           |
+file h/09           |
+file g/10           |
+file p/11           |
+file o/12           |
+file u/13           |
+file i/14           |
+file m/15           |
+file l/16           |
+file k/17           |
+file j/18           |
+file v/19           |
+file c/20           |
+file x/21           |
+file z/22           |
+file r/23           |
+file e/24           |
+file w/25           |
+file q/26           |
+file f/27           |
+file d/28           |
+file s/29           |
+file a/30           |
+HINT                |
+style:
+dddddhhuuddddddddddd|
+dddddhhuuddddddddddd|
+dddddhhuuddddddddddd|
+dddddhhuuddddddddddd|
+dddddhhuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+dddddhuuuddddddddddd|
+ssssssssssssssssssss|
