@@ -1,0 +1,7 @@
+user@host:~/proj$ cat notes.txt
+日本語のテキスト: wide glyphs
+mixed ASCII 漢字 and かな, then a URL https://example.com/路径
+truecolor 色 and 256-colour
+emoji 🎉 party
+全角 reverse
+user@host:~/proj$

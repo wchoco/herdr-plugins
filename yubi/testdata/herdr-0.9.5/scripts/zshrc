@@ -1,0 +1,5 @@
+# Loaded as $ZDOTDIR/.zshrc in a fixture pane: a fixed prompt, then the
+# fixture script named by $YUBI_FIXTURE.
+PS1='%F{green}user@host%f:%F{blue}~/proj%f$ '
+unsetopt PROMPT_SP
+[ -n "$YUBI_FIXTURE" ] && . "$YUBI_FIXTURE"
