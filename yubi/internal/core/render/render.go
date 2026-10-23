@@ -21,12 +21,15 @@ const (
 	Text       Role = iota // Target Pane text in its original style
 	LineNumber             // a Line Number label: bold black on cyan
 	Status                 // the status row: reverse video
+	Selected               // Target Pane text in a Line Mode selection: reverse video over its original style
+	Error                  // error text in the status row: bold red, reverse video
 )
 
 // sgr is the fixed style of each yubi role; Text keeps the cell's original SGR.
 var sgr = map[Role]string{
 	LineNumber: "1;30;46",
 	Status:     "7",
+	Error:      "7;1;31",
 }
 
 // letter is the role's letter in a Dump style map. Text cells are '.' in
@@ -34,6 +37,8 @@ var sgr = map[Role]string{
 var letter = map[Role]byte{
 	LineNumber: 'n',
 	Status:     's',
+	Selected:   'r',
+	Error:      'e',
 }
 
 // Cell is one terminal cell.
@@ -99,6 +104,21 @@ func (g *Grid) Fill(y, x, n int, role Role) {
 	}
 }
 
+// Select shows row y as selected: every Target Pane text cell, blanks up to
+// the right edge included, is drawn in reverse video over its original
+// style. Cells in other roles, such as a Line Number label, are left as
+// they are.
+func (g *Grid) Select(y int) {
+	if y < 0 || y >= g.H {
+		return
+	}
+	for x := range g.cells[y] {
+		if c := &g.cells[y][x]; c.Role == Text {
+			c.Role = Selected
+		}
+	}
+}
+
 // Cell returns the cell at column x of row y.
 func (g *Grid) Cell(y, x int) Cell { return g.cells[y][x] }
 
@@ -135,8 +155,13 @@ func (g *Grid) clear(y, x int) {
 
 // style returns the SGR parameters a cell is drawn with.
 func (c Cell) style() string {
-	if c.Role == Text {
+	switch {
+	case c.Role == Text:
 		return c.SGR
+	case c.Role == Selected && c.SGR != "":
+		return c.SGR + ";7"
+	case c.Role == Selected:
+		return "7"
 	}
 	return sgr[c.Role]
 }
