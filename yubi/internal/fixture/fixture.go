@@ -14,7 +14,7 @@ import (
 const HerdrVersion = "0.9.5"
 
 // Names lists every captured fixture.
-var Names = []string{"shell", "cjk", "wrap"}
+var Names = []string{"shell", "cjk", "wrap", "joined"}
 
 // Dir returns the absolute path of yubi/testdata.
 func Dir() string {

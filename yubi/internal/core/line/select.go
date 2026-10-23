@@ -53,3 +53,19 @@ func Copy(scr screen.Screen, rows []int) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// JoinedCopy returns the Joined Copy text of rows: the same rows as Copy,
+// joined by sep. Intermediate rows keep their trailing whitespace as herdr
+// wrote it, so a soft wrap that fell on a space keeps that space; only the
+// last row is trimmed.
+func JoinedCopy(scr screen.Screen, rows []int, sep string) string {
+	lines := make([]string, len(rows))
+	for i, row := range rows {
+		if i == len(rows)-1 {
+			lines[i] = Text(scr, row)
+		} else {
+			lines[i] = scr.Rows[row].Text()
+		}
+	}
+	return strings.Join(lines, sep)
+}

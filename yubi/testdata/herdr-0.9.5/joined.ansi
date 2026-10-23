@@ -1,0 +1,6 @@
+[0m[38;5;2muser@host[0m:[0m[38;5;4m~/proj[0m$ echo $MSG
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+after the wrap
+kept   
+trimmed   
+[0m[38;5;2muser@host[0m:[0m[38;5;4m~/proj[0m$ 

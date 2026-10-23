@@ -27,7 +27,8 @@ func (Copy) action()   {}
 func (Exit) action()   {}
 func (Redraw) action() {}
 
-var decode = keys.Decode
+// joinSeparator joins the lines of a Joined Copy.
+const joinSeparator = ""
 
 // Machine is the overlay's state machine: key events in, actions out, and
 // the frame for the current state.
@@ -92,7 +93,9 @@ func (m *Machine) Key(k keys.Key) []Action {
 	case k == keys.Key{Code: 'u', Mod: keys.Ctrl}:
 		return m.edit("")
 	case k == keys.Key{Code: keys.Enter}:
-		return m.commit()
+		return m.commit(false)
+	case k == keys.Key{Code: keys.Enter, Mod: keys.Ctrl}, k == keys.Key{Code: 'j', Mod: keys.Ctrl}:
+		return m.commit(true)
 	}
 	return nil
 }
@@ -104,9 +107,9 @@ func (m *Machine) edit(input string) []Action {
 	return []Action{Redraw{}}
 }
 
-// commit validates the whole input and copies the selected rows, or shows
-// why it cannot. Empty input is a no-op.
-func (m *Machine) commit() []Action {
+// commit validates the whole input and copies the selected rows, as one
+// line when joined, or shows why it cannot. Empty input is a no-op.
+func (m *Machine) commit(joined bool) []Action {
 	if m.input == "" {
 		return nil
 	}
@@ -114,6 +117,9 @@ func (m *Machine) commit() []Action {
 	if err != nil {
 		m.err = err.Error()
 		return []Action{Redraw{}}
+	}
+	if joined {
+		return []Action{Copy{Text: line.JoinedCopy(m.scr, rows, joinSeparator)}}
 	}
 	return []Action{Copy{Text: line.Copy(m.scr, rows)}}
 }

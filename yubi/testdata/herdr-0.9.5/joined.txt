@@ -1,0 +1,6 @@
+user@host:~/proj$ echo $MSG
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+after the wrap
+kept
+trimmed
+user@host:~/proj$

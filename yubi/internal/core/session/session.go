@@ -9,7 +9,9 @@ package session
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 )
 
@@ -44,6 +46,17 @@ type Terminal interface {
 	Draw(frame *render.Grid) error
 }
 
+// Clock is the time source for the lone-Esc timeout.
+type Clock interface {
+	Now() time.Time
+	After(d time.Duration) <-chan time.Time
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time                         { return time.Now() }
+func (realClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
+
 // Mode is the selection mode a session starts in.
 type Mode string
 
@@ -63,6 +76,7 @@ type Deps struct {
 	Source    PaneSource
 	Clipboard Clipboard
 	Terminal  Terminal
+	Clock     Clock // nil means the system clock
 }
 
 // Run runs one overlay session until the user copies, cancels or the input
@@ -77,19 +91,31 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 	if err := d.Terminal.Draw(m.Frame()); err != nil {
 		return err
 	}
+	clock := d.Clock
+	if clock == nil {
+		clock = realClock{}
+	}
+	dec := keys.NewDecoder(keys.EscTimeout)
 	for {
-		var b []byte
-		var ok bool
+		// A lone Esc from a legacy terminal waits for its timeout.
+		var timer <-chan time.Time
+		if deadline, ok := dec.Deadline(); ok {
+			timer = clock.After(deadline.Sub(clock.Now()))
+		}
+		var ks []keys.Key
 		select {
 		case <-ctx.Done():
 			return nil
-		case b, ok = <-d.Terminal.Input():
-		}
-		if !ok {
-			return nil
+		case b, ok := <-d.Terminal.Input():
+			if !ok {
+				return nil
+			}
+			ks = dec.Feed(b, clock.Now())
+		case <-timer:
+			ks = dec.Expire(clock.Now())
 		}
 		redraw := false
-		for _, k := range decode(b) {
+		for _, k := range ks {
 			for _, a := range m.Key(k) {
 				switch a := a.(type) {
 				case Copy:
