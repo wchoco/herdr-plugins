@@ -38,6 +38,8 @@ type Machine struct {
 	input   string // Line Mode input typed so far
 	err     string // input error shown next to the input until the next key
 	message string // when set, a message-only state: nothing is selectable
+
+	hint *hintState // set in Hint Mode
 }
 
 // NewLine starts Line Mode on scr in a w x h overlay. The status row is the
@@ -58,15 +60,16 @@ func newMessage(msg string, w, h int) *Machine {
 // start reads the Target Pane and builds the machine for cfg.
 func start(ctx context.Context, cfg Config, src PaneSource, w, h int) *Machine {
 	switch cfg.Mode {
-	case ModeLine:
-	case ModeHint:
-		return newMessage("hint mode is not available yet", w, h)
+	case ModeLine, ModeHint:
 	default:
 		return newMessage("unknown mode "+strconv.Quote(string(cfg.Mode)), w, h)
 	}
 	ansi, err := src.ReadVisible(ctx, cfg.Target, FormatANSI)
 	if err != nil {
 		return newMessage("cannot read target: "+err.Error(), w, h)
+	}
+	if cfg.Mode == ModeHint {
+		return NewHint(screen.ParseANSI(ansi), w, h)
 	}
 	return NewLine(screen.ParseANSI(ansi), w, h)
 }
@@ -78,6 +81,9 @@ func (m *Machine) Fail(msg string) { m.message = msg }
 func (m *Machine) Key(k keys.Key) []Action {
 	if m.message != "" {
 		return []Action{Exit{}}
+	}
+	if m.hint != nil {
+		return m.hint.key(k)
 	}
 	switch {
 	case k == keys.Key{Code: keys.Escape}, k == keys.Key{Code: 'c', Mod: keys.Ctrl}:
@@ -133,7 +139,9 @@ func (m *Machine) Frame() *render.Grid {
 		return g
 	}
 	status := m.h - 1
-	if m.message == "" {
+	if m.message == "" && m.hint != nil {
+		m.hint.draw(g, m.scr, status)
+	} else if m.message == "" {
 		labelWidth := len(strconv.Itoa(m.num.Max()))
 		for y := 0; y < status && y < len(m.scr.Rows); y++ {
 			g.DrawRow(y, 0, m.scr.Rows[y])
@@ -161,6 +169,9 @@ func (m *Machine) Frame() *render.Grid {
 func (m *Machine) statusText() (text, errText string) {
 	if m.message != "" {
 		return m.message, ""
+	}
+	if m.hint != nil {
+		return m.hint.status(), ""
 	}
 	return "LINE  " + m.input, m.err
 }
