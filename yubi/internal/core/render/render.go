@@ -21,6 +21,10 @@ const (
 	Text       Role = iota // Target Pane text in its original style
 	LineNumber             // a Line Number label: bold black on cyan
 	Status                 // the status row: reverse video
+	Hint                   // a Hint: bold black on yellow
+	HintTyped              // the typed prefix of a Hint: faint black on yellow
+	Match                  // Target Pane text in a Match: original style plus underline
+	Dim                    // Target Pane text outside Matches: original style plus faint
 	Selected               // Target Pane text in a Line Mode selection: reverse video over its original style
 	Error                  // error text in the status row: bold red, reverse video
 )
@@ -29,7 +33,16 @@ const (
 var sgr = map[Role]string{
 	LineNumber: "1;30;46",
 	Status:     "7",
+	Hint:       "1;30;43",
+	HintTyped:  "2;30;43",
 	Error:      "7;1;31",
+}
+
+// overSGR is added to the original SGR of cells in roles that keep it.
+var overSGR = map[Role]string{
+	Match:    "4",
+	Dim:      "2",
+	Selected: "7",
 }
 
 // letter is the role's letter in a Dump style map. Text cells are '.' in
@@ -37,6 +50,10 @@ var sgr = map[Role]string{
 var letter = map[Role]byte{
 	LineNumber: 'n',
 	Status:     's',
+	Hint:       'h',
+	HintTyped:  'p',
+	Match:      'u',
+	Dim:        'd',
 	Selected:   'r',
 	Error:      'e',
 }
@@ -104,6 +121,21 @@ func (g *Grid) Fill(y, x, n int, role Role) {
 	}
 }
 
+// Restyle sets the role of n cells from column x of row y that show
+// Target Pane text, keeping their text and original style. Cells drawn by
+// Label or Fill are left alone.
+func (g *Grid) Restyle(y, x, n int, role Role) {
+	if y < 0 || y >= g.H {
+		return
+	}
+	for i := max(x, 0); i < x+n && i < g.W; i++ {
+		c := &g.cells[y][i]
+		if _, keeps := overSGR[c.Role]; keeps || c.Role == Text {
+			c.Role = role
+		}
+	}
+}
+
 // Select shows row y as selected: every Target Pane text cell, blanks up to
 // the right edge included, is drawn in reverse video over its original
 // style. Cells in other roles, such as a Line Number label, are left as
@@ -155,13 +187,14 @@ func (g *Grid) clear(y, x int) {
 
 // style returns the SGR parameters a cell is drawn with.
 func (c Cell) style() string {
-	switch {
-	case c.Role == Text:
+	if c.Role == Text {
 		return c.SGR
-	case c.Role == Selected && c.SGR != "":
-		return c.SGR + ";7"
-	case c.Role == Selected:
-		return "7"
+	}
+	if over, ok := overSGR[c.Role]; ok {
+		if c.SGR == "" {
+			return over
+		}
+		return c.SGR + ";" + over
 	}
 	return sgr[c.Role]
 }

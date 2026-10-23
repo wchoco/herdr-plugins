@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -50,9 +51,10 @@ func (c *fakeClipboard) Copy(text string) error {
 }
 
 type fakeTerminal struct {
-	w, h   int
-	input  chan []byte
-	frames []*render.Grid
+	w, h    int
+	input   chan []byte
+	resized chan struct{}
+	frames  []*render.Grid
 }
 
 func newTerminal(w, h int, reads ...string) *fakeTerminal {
@@ -64,8 +66,9 @@ func newTerminal(w, h int, reads ...string) *fakeTerminal {
 	return t
 }
 
-func (t *fakeTerminal) Size() (int, int, error) { return t.w, t.h, nil }
-func (t *fakeTerminal) Input() <-chan []byte    { return t.input }
+func (t *fakeTerminal) Size() (int, int, error)  { return t.w, t.h, nil }
+func (t *fakeTerminal) Input() <-chan []byte     { return t.input }
+func (t *fakeTerminal) Resized() <-chan struct{} { return t.resized }
 func (t *fakeTerminal) Draw(frame *render.Grid) error {
 	t.frames = append(t.frames, frame)
 	return nil
@@ -279,6 +282,109 @@ func TestReadFailureIsShownAndAnyKeyCloses(t *testing.T) {
 	}
 	if len(clip.copies) != 0 || len(term.frames) != 1 {
 		t.Errorf("copies %q, %d frames", clip.copies, len(term.frames))
+	}
+}
+
+// manyPaths is a hand-written screen of 30 distinct paths, one per row, so
+// the top Matches get two-letter Hints from the default alphabet.
+func manyPaths() fixture.Capture {
+	var rows []string
+	for i := 1; i <= 30; i++ {
+		rows = append(rows, fmt.Sprintf("file p/%02d", i))
+	}
+	s := strings.Join(rows, "\n")
+	return fixture.Capture{Name: "many", Text: s + "\n", ANSI: strings.ReplaceAll(s, "\n", "\r\n")}
+}
+
+func runCapture(t *testing.T, mode session.Mode, c fixture.Capture, reads ...string) scenario {
+	t.Helper()
+	s := scenario{
+		src:  &fakeSource{captures: map[string]fixture.Capture{"w1:p1": c}},
+		clip: &fakeClipboard{},
+		term: newTerminal(120, 39, reads...),
+	}
+	s.err = session.Run(context.Background(),
+		session.Config{Mode: mode, Target: "w1:p1"},
+		session.Deps{Source: s.src, Clipboard: s.clip, Terminal: s.term})
+	return s
+}
+
+func TestHintModeTypingAHintCopiesItsMatchOnceAndExits(t *testing.T) {
+	// 30 unique texts: p/01 at the top gets the last two-letter Hint, "nq".
+	// "x" continues no Hint and is ignored; the read after the copy is
+	// never seen because Run has exited.
+	s := runCapture(t, session.ModeHint, manyPaths(), "n", "x", "q", "a")
+	if s.err != nil {
+		t.Fatal(s.err)
+	}
+	if want := []string{"p/01"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies: got %q, want %q", s.clip.copies, want)
+	}
+	if got := statusRow(t, s.term); got != "HINT  n" {
+		t.Errorf("status row %q", got)
+	}
+}
+
+func TestHintModeSharedHintCopiesDuplicatedURL(t *testing.T) {
+	// The URL printed three times shares the second-shortest Hint: the
+	// prompt path on the last row is nearer the bottom.
+	s := run(t, session.ModeHint, "links", nil, "s")
+	if want := []string{"https://example.com/docs"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies: got %q, want %q", s.clip.copies, want)
+	}
+}
+
+func TestHintModeBackspaceAndCancel(t *testing.T) {
+	// Backspace drops the typed "n", so "a" completes the bottom Hint.
+	s := runCapture(t, session.ModeHint, manyPaths(), "n", "\x7f", "a")
+	if want := []string{"p/30"}; !reflect.DeepEqual(s.clip.copies, want) {
+		t.Errorf("copies: got %q, want %q", s.clip.copies, want)
+	}
+	for _, key := range []string{"\x1b", "\x03"} {
+		s := runCapture(t, session.ModeHint, manyPaths(), "n", key, "q")
+		if s.err != nil || len(s.clip.copies) != 0 {
+			t.Errorf("%q: err %v, copies %q", key, s.err, s.clip.copies)
+		}
+	}
+}
+
+func TestHintModeNoMatches(t *testing.T) {
+	c := fixture.Capture{Text: "hello\nworld\n", ANSI: "hello\r\nworld"}
+	s := runCapture(t, session.ModeHint, c, "a", "s")
+	if got := statusRow(t, s.term); got != "no matches" {
+		t.Errorf("status row %q", got)
+	}
+	if len(s.clip.copies) != 0 || len(s.term.frames) != 1 {
+		t.Errorf("copies %q, %d frames", s.clip.copies, len(s.term.frames))
+	}
+}
+
+func TestHintModeBlankScreenHasNothingToCopy(t *testing.T) {
+	s := runCapture(t, session.ModeHint, fixture.Capture{}, "a")
+	if got := statusRow(t, s.term); got != "nothing to copy" {
+		t.Errorf("status row %q", got)
+	}
+}
+
+func TestHintRenderGoldens(t *testing.T) {
+	tests := []struct {
+		name  string
+		c     fixture.Capture
+		w, h  int
+		typed string
+	}{
+		{name: "hint-links", c: fixture.Load(t, "links"), w: 80, h: 14},
+		{name: "hint-many", c: manyPaths(), w: 20, h: 31},
+		{name: "hint-many-typed", c: manyPaths(), w: 20, h: 31, typed: "n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := session.NewHint(screen.ParseANSI(tt.c.ANSI), tt.w, tt.h)
+			for _, r := range tt.typed {
+				m.Key(keyOf(r))
+			}
+			golden(t, tt.name, m.Frame().Dump())
+		})
 	}
 }
 

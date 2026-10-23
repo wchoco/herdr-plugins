@@ -35,8 +35,26 @@ type Client struct {
 // NewClient returns a client for the socket at path ($HERDR_SOCKET_PATH).
 func NewClient(path string) *Client { return &Client{path: path} }
 
+// unreachableError is a failure to connect to herdr's socket.
+type unreachableError struct{ err error }
+
+func (e *unreachableError) Error() string { return "socket unreachable" }
+func (e *unreachableError) Unwrap() error { return e.err }
+
 // Call sends one request and decodes the response's result into result.
 func (c *Client) Call(ctx context.Context, method string, params, result any) error {
+	conn, _, err := c.request(ctx, method, params, result)
+	if conn != nil {
+		conn.Close()
+	}
+	return err
+}
+
+// request dials, sends one request and reads the first response line,
+// decoding its result into result. On success it returns the connection
+// and its reader for a caller that keeps reading; otherwise the connection
+// is closed.
+func (c *Client) request(ctx context.Context, method string, params, result any) (net.Conn, *bufio.Reader, error) {
 	if params == nil {
 		params = struct{}{}
 	}
@@ -46,38 +64,44 @@ func (c *Client) Call(ctx context.Context, method string, params, result any) er
 		Params any    `json:"params"`
 	}{ID: "yubi:" + strconv.FormatInt(c.seq.Add(1), 10), Method: method, Params: params})
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "unix", c.path)
 	if err != nil {
-		return fmt.Errorf("herdr socket: %w", err)
+		return nil, nil, &unreachableError{err}
 	}
-	defer conn.Close()
+	fail := func(err error) (net.Conn, *bufio.Reader, error) {
+		conn.Close()
+		return nil, nil, err
+	}
 	if deadline, ok := ctx.Deadline(); ok {
 		conn.SetDeadline(deadline)
 	}
 	if _, err := conn.Write(append(req, '\n')); err != nil {
-		return fmt.Errorf("herdr socket: %w", err)
+		return fail(fmt.Errorf("herdr socket: %w", err))
 	}
-	line, err := bufio.NewReader(conn).ReadBytes('\n')
+	r := bufio.NewReader(conn)
+	line, err := r.ReadBytes('\n')
 	if err != nil {
-		return fmt.Errorf("herdr socket: %w", err)
+		return fail(fmt.Errorf("herdr socket: %w", err))
 	}
 	var resp struct {
 		Result json.RawMessage `json:"result"`
 		Error  *APIError       `json:"error"`
 	}
 	if err := json.Unmarshal(line, &resp); err != nil {
-		return fmt.Errorf("herdr socket: %w", err)
+		return fail(fmt.Errorf("herdr socket: %w", err))
 	}
 	if resp.Error != nil {
-		return resp.Error
+		return fail(resp.Error)
 	}
-	if result == nil {
-		return nil
+	if result != nil {
+		if err := json.Unmarshal(resp.Result, result); err != nil {
+			return fail(fmt.Errorf("herdr socket: %w", err))
+		}
 	}
-	return json.Unmarshal(resp.Result, result)
+	return conn, r, nil
 }
 
 // ReadVisible implements session.PaneSource with pane.read, source visible.

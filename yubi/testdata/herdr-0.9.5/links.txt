@@ -1,0 +1,12 @@
+user@host:~/proj$ git push
+remote: Create a pull request:
+remote:   https://github.com/wchoco/herdr-plugins/pull/new/feat
+To github.com:wchoco/herdr-plugins.git
+see https://example.com/docs and https://example.com/docs again
+nothing to hint on this row
+user@host:~/proj$ go build ./...
+./yubi/internal/core/hint/hint.go:12:3: undefined: x
+log written to /tmp/yubi/build.log and ~/proj/out.txt
+日本語 /var/log/syslog 漢字
+docs again: https://example.com/docs
+user@host:~/proj$

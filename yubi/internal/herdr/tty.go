@@ -3,6 +3,8 @@ package herdr
 import (
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"golang.org/x/term"
 
@@ -21,6 +23,8 @@ type TTY struct {
 	in, out *os.File
 	state   *term.State
 	input   chan []byte
+	winch   chan os.Signal
+	resized chan struct{}
 }
 
 // OpenTTY puts the terminal on in/out into raw mode and starts reading keys.
@@ -29,13 +33,25 @@ func OpenTTY(in, out *os.File) (*TTY, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &TTY{in: in, out: out, state: state, input: make(chan []byte)}
+	t := &TTY{in: in, out: out, state: state, input: make(chan []byte),
+		winch: make(chan os.Signal, 1), resized: make(chan struct{}, 1)}
+	signal.Notify(t.winch, syscall.SIGWINCH)
+	go t.forwardResizes()
 	if _, err := io.WriteString(out, ttySetup); err != nil {
 		t.Close()
 		return nil, err
 	}
 	go t.read()
 	return t, nil
+}
+
+func (t *TTY) forwardResizes() {
+	for range t.winch {
+		select {
+		case t.resized <- struct{}{}:
+		default: // one pending signal is enough
+		}
+	}
 }
 
 func (t *TTY) read() {
@@ -58,6 +74,9 @@ func (t *TTY) Size() (int, int, error) { return term.GetSize(int(t.out.Fd())) }
 // Input delivers raw key bytes.
 func (t *TTY) Input() <-chan []byte { return t.input }
 
+// Resized signals SIGWINCH.
+func (t *TTY) Resized() <-chan struct{} { return t.resized }
+
 // Draw writes a full frame.
 func (t *TTY) Draw(g *render.Grid) error {
 	_, err := t.out.Write(g.Encode())
@@ -69,6 +88,8 @@ func (t *TTY) Writer() io.Writer { return t.out }
 
 // Close undoes the terminal setup.
 func (t *TTY) Close() error {
+	signal.Stop(t.winch)
+	close(t.winch)
 	io.WriteString(t.out, ttyRestore)
 	return term.Restore(int(t.in.Fd()), t.state)
 }

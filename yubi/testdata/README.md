@@ -17,6 +17,7 @@ The screen content comes from `scripts/<name>.sh`, sourced by a zsh with the fix
 | `shell` | prompts, VCS status output with colours and tabs, a long listing, written trailing spaces, blank rows |
 | `cjk` | CJK and emoji wide glyphs mixed with ASCII, truecolor and 256-colour SGR, reverse video |
 | `wrap` | a soft-wrapped ASCII URL and a soft-wrapped run of wide glyphs |
+| `links` | Hint Mode input: coloured URLs (one printed three times), absolute, relative and home paths, a path between wide glyphs, a row with no Match |
 | `joined` | a soft wrap that falls on a space, written trailing spaces on consecutive rows |
 
 Re-capture all fixtures whenever `min_herdr_version` is raised, into a new `herdr-<version>/` directory.
@@ -35,7 +36,7 @@ herdr server
 In a second terminal with the same environment:
 
 ```sh
-yubi/testdata/herdr-0.9.5/scripts/capture.sh shell cjk wrap joined
+yubi/testdata/herdr-0.9.5/scripts/capture.sh shell cjk wrap links joined
 herdr server stop
 ```
 
@@ -48,6 +49,17 @@ Each `ndjson/<name>.ndjson` holds one request line and herdr's response line, re
 ```sh
 python3 yubi/testdata/herdr-0.9.5/scripts/capture-ndjson.py <pane-id>
 ```
+
+### Event captures: `ndjson/events-*`
+
+Each `ndjson/events-<scenario>.ndjson` holds yubi's `events.subscribe` request line, herdr's response line and every event line pushed after one session change; `events-<scenario>.ids.json` names that scenario's workspace, tab, Target Pane, sibling and overlay. The overlay is a stand-in plugin (`scripts/probe-plugin`) whose pane only sleeps. With the throwaway server running:
+
+```sh
+herdr plugin link yubi/testdata/herdr-0.9.5/scripts/probe-plugin
+python3 yubi/testdata/herdr-0.9.5/scripts/capture-events.py
+```
+
+`events-subscribe-rejected.ndjson` is a subscription naming a pane that does not exist (herdr answers `pane_not_found` and closes the connection). herdr refuses to move a pane out of a zoomed tab, so `target-moved` un-zooms the tab before moving the Target.
 
 ## `golden/`: render goldens
 

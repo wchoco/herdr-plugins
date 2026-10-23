@@ -74,11 +74,20 @@ func ui() error {
 		return err
 	}
 	defer tty.Close()
+	client := herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH"))
 	return session.Run(context.Background(),
-		session.Config{Mode: session.Mode(os.Getenv("YUBI_MODE")), Target: os.Getenv("YUBI_TARGET_PANE")},
+		session.Config{
+			Mode:   session.Mode(os.Getenv("YUBI_MODE")),
+			Target: os.Getenv("YUBI_TARGET_PANE"),
+			// herdr sets these to the overlay's own pane, tab and workspace.
+			Overlay:   os.Getenv("HERDR_PANE_ID"),
+			Tab:       os.Getenv("HERDR_TAB_ID"),
+			Workspace: os.Getenv("HERDR_WORKSPACE_ID"),
+		},
 		session.Deps{
-			Source:    herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH")),
+			Source:    client,
 			Clipboard: herdr.NewOSC52(tty.Writer()),
 			Terminal:  tty,
+			Events:    client,
 		})
 }
