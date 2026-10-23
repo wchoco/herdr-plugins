@@ -41,3 +41,7 @@ The yubi mode that shows a Line Number on each line.
 **Joined Copy**:
 A Line Mode copy that joins the selected lines without line breaks, producing a single line.
 _Avoid_: one-line copy, flatten
+
+**Paste Copy**:
+A copy that also pastes the copied text into the Target Pane.
+_Avoid_: copy-and-paste, upcase action, insert
