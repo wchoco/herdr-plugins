@@ -68,8 +68,10 @@ func action(mode session.Mode) error {
 	defer cancel()
 	client := herdr.NewClient(os.Getenv("HERDR_SOCKET_PATH"))
 	return launch(ctx, client, os.Getenv("HERDR_PLUGIN_STATE_DIR"), focused, mode,
-		func(ctx context.Context, target string) (string, error) {
-			return client.OpenOverlay(ctx, pluginID, target, mode, layoutEnv(ctx, client, target))
+		func(ctx context.Context, target string) (string, bool, error) {
+			tab, env := layoutEnv(ctx, client, target)
+			id, err := client.OpenOverlay(ctx, pluginID, target, mode, env)
+			return id, tab != nil && tab.Zoomed, err
 		})
 }
 
@@ -118,15 +120,16 @@ func ui() error {
 const layoutEnvVar = "YUBI_LAYOUT"
 
 // layoutEnv captures the layout of the Target Pane's tab before the
-// overlay opens and returns it as ui's environment. Without it ui draws
-// the Target from the overlay's corner, so a failure is only logged.
-func layoutEnv(ctx context.Context, client *herdr.Client, target string) map[string]string {
+// overlay opens and returns it, and also as ui's environment. Without it
+// ui draws the Target from the overlay's corner, so a failure is only
+// logged and both are nil.
+func layoutEnv(ctx context.Context, client *herdr.Client, target string) (*layout.Tab, map[string]string) {
 	tab, err := client.Layout(ctx, target)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "yubi: cannot capture the tab layout:", err)
-		return nil
+		return nil, nil
 	}
-	return map[string]string{layoutEnvVar: layout.Encode(tab)}
+	return tab, map[string]string{layoutEnvVar: layout.Encode(tab)}
 }
 
 // uiLayout returns the layout action handed over, or nil.

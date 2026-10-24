@@ -167,6 +167,22 @@ func TestCloseOverlayNotFound(t *testing.T) {
 	}
 }
 
+func TestZoom(t *testing.T) {
+	c := herdr.NewClient(replay(t, "pane-zoom"))
+	if err := c.Zoom(context.Background(), "w1:p1"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestZoomNotFound(t *testing.T) {
+	c := herdr.NewClient(replay(t, "pane-zoom-not-found"))
+	err := c.Zoom(context.Background(), "w9:p99")
+	var apiErr *herdr.APIError
+	if !errors.As(err, &apiErr) || apiErr.Code != "pane_not_found" {
+		t.Fatalf("got %v, want a pane_not_found APIError", err)
+	}
+}
+
 func TestPasteSendsTextOnlyWithSendInput(t *testing.T) {
 	// The capture's request has text and no keys: no Enter is sent.
 	c := herdr.NewClient(replay(t, "pane-send-input"))

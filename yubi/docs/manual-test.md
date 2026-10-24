@@ -90,7 +90,7 @@ Run these at a zsh or bash prompt, which turn on bracketed paste, on the test sc
 
 - [ ] **Split**: split the tab three ways (`herdr pane split --current --direction right`, then in the new pane `herdr pane split --current --direction down`), show the test screen in one pane and focus it. `prefix+f` and `prefix+y`: the Target Pane is redrawn exactly where it was, with Hints and Line Numbers only on it. The other panes are faint at their places, with faint rules between panes, and nothing on screen jumps.
 - [ ] **Split, narrow**: in a narrow split pane, print a URL that is cut off at the right edge. `prefix+f`: its Hint is right-aligned to the last visible cell, and typing it copies the full URL.
-- [ ] **Zoomed**: zoom a split pane (`herdr pane zoom --current --on`). `prefix+f` and `prefix+y`: the zoomed pane is redrawn full size exactly where it was, with no other panes or rules, and a copy works. After the overlay closes the pane is still zoomed.
+- [ ] **Zoomed**: zoom a split pane (`herdr pane zoom --current --on`). `prefix+f` and `prefix+y`: the zoomed pane is redrawn full size exactly where it was, with no other panes or rules, and a copy works. After the overlay closes the pane is still zoomed. The same holds when it closes by pressing its binding again (`prefix+f` twice), and after `prefix+f`, `prefix+y` and Esc.
 - [ ] **Single pane filling the tab**: the status row covers the last row and the rightmost columns are clipped (see the README's known limits). Copies still work.
 
 ## Re-launch and mode switch

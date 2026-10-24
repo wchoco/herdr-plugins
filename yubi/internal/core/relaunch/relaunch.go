@@ -20,6 +20,7 @@ type Record struct {
 	Overlay string       `json:"overlay"` // the overlay's pane id
 	Target  string       `json:"target"`  // the Target Pane's id
 	Mode    session.Mode `json:"mode"`
+	Zoomed  bool         `json:"zoomed,omitempty"` // the tab was zoomed before the overlay opened
 }
 
 // Panes is herdr's pane get.
@@ -43,7 +44,11 @@ const (
 type Plan struct {
 	Kind    Kind
 	Overlay string // the overlay to close (Close, Switch)
-	Target  string // the Target Pane to open on (Open, Switch)
+	Target  string // the Target Pane to open on (Open, Switch) or to zoom
+	// Zoomed asks to zoom Target again once Overlay is closed (Close,
+	// Switch): herdr restores the zoom an overlay saved when its process
+	// exits, but not when plugin.pane.close closes it.
+	Zoomed bool
 }
 
 // Decide plans a launch in mode with focused as herdr's focused pane. rec
@@ -68,8 +73,8 @@ func Decide(ctx context.Context, panes Panes, rec *Record, focused string, mode 
 	case !ok:
 		return Plan{Kind: Open, Target: rec.Target}, nil
 	case rec.Mode == mode:
-		return Plan{Kind: Close, Overlay: rec.Overlay}, nil
+		return Plan{Kind: Close, Overlay: rec.Overlay, Target: rec.Target, Zoomed: rec.Zoomed}, nil
 	default:
-		return Plan{Kind: Switch, Overlay: rec.Overlay, Target: rec.Target}, nil
+		return Plan{Kind: Switch, Overlay: rec.Overlay, Target: rec.Target, Zoomed: rec.Zoomed}, nil
 	}
 }

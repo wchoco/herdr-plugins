@@ -19,16 +19,17 @@ const stateFile = "overlay.json"
 type overlays interface {
 	relaunch.Panes
 	CloseOverlay(ctx context.Context, pane string) error
+	Zoom(ctx context.Context, pane string) error
 }
 
 // launch runs one press of a yubi binding in mode, with focused as herdr's
 // focused pane: it toggles the recorded overlay closed, switches it to
 // mode on its original Target Pane, or opens a fresh overlay on focused.
-// open opens an overlay on a Target Pane and returns the overlay's id.
-// stateDir holds the record; with stateDir empty nothing is recorded and
+// open opens an overlay on a Target Pane and returns the overlay's id and
+// whether the tab was zoomed before it opened. stateDir holds the record; with stateDir empty nothing is recorded and
 // every press opens a fresh overlay.
 func launch(ctx context.Context, h overlays, stateDir, focused string, mode session.Mode,
-	open func(ctx context.Context, target string) (string, error)) error {
+	open func(ctx context.Context, target string) (string, bool, error)) error {
 	plan, err := relaunch.Decide(ctx, h, loadRecord(stateDir), focused, mode)
 	if err != nil {
 		return err
@@ -47,16 +48,23 @@ func launch(ctx context.Context, h overlays, stateDir, focused string, mode sess
 			plan = relaunch.Plan{Kind: relaunch.Open, Target: focused}
 		case err != nil:
 			return err
-		case plan.Kind == relaunch.Close:
-			clearRecord(stateDir)
-			return nil
+		default:
+			if plan.Zoomed {
+				if err := h.Zoom(ctx, plan.Target); err != nil {
+					return err
+				}
+			}
+			if plan.Kind == relaunch.Close {
+				clearRecord(stateDir)
+				return nil
+			}
 		}
 	}
-	id, err := open(ctx, plan.Target)
+	id, zoomed, err := open(ctx, plan.Target)
 	if err != nil {
 		return err
 	}
-	return saveRecord(stateDir, relaunch.Record{Overlay: id, Target: plan.Target, Mode: mode})
+	return saveRecord(stateDir, relaunch.Record{Overlay: id, Target: plan.Target, Mode: mode, Zoomed: zoomed})
 }
 
 // loadRecord returns the recorded overlay, or nil when there is none or it
