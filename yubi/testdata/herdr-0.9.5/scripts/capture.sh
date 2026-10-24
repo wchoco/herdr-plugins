@@ -1,10 +1,15 @@
 #!/bin/sh
 # Capture `pane read --source visible` fixtures from a running herdr server.
-# Run it against a throwaway server (see ../../README.md), never your own
-# session: it creates and closes one workspace per fixture.
+# Run it through scripts/throwaway-herdr (see ../../README.md), never against
+# your own session: it creates and closes one workspace per fixture.
 #
 # Usage: capture.sh <fixture>...   e.g. capture.sh shell cjk wrap
 set -eu
+
+if [ -z "${THROWAWAY_HERDR_DIR:-}" ]; then
+	echo "run this through scripts/throwaway-herdr" >&2
+	exit 2
+fi
 
 here=$(cd "$(dirname "$0")" && pwd)
 out=$(dirname "$here")

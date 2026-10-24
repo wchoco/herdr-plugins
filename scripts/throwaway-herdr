@@ -1,0 +1,56 @@
+#!/bin/sh
+# Run a command against a throwaway herdr, never the user's own session.
+#
+# Usage: scripts/throwaway-herdr <command> [args...]
+#
+#   scripts/throwaway-herdr herdr server &           # a headless server
+#   scripts/throwaway-herdr herdr plugin link ./yubi
+#   scripts/throwaway-herdr tmux -L throwaway new-session -d herdr   # with a client
+#   scripts/throwaway-herdr herdr server stop
+#
+# It removes every HERDR_* variable and TMUX (an inherited HERDR_SOCKET_PATH
+# sends herdr commands to the user's real server) and points the XDG dirs
+# under $THROWAWAY_HERDR_DIR, default /tmp/herdr-throwaway-<uid>. The socket
+# is then $THROWAWAY_HERDR_DIR/cfg/herdr/herdr.sock, which must fit in
+# sun_path, so keep the dir short. The dir holds config that herdr and
+# plugins run commands from, so it is created 0700 and an existing one is
+# used only when it is a real directory owned by you with mode 0700.
+set -eu
+
+dir=${THROWAWAY_HERDR_DIR:-/tmp/herdr-throwaway-$(id -u)}
+case $dir in
+/*) ;;
+*) dir=$(pwd)/$dir ;;
+esac
+if [ ${#dir} -gt 80 ]; then
+	echo "throwaway-herdr: $dir is too long for herdr's socket path; pick a shorter THROWAWAY_HERDR_DIR" >&2
+	exit 2
+fi
+if [ $# -eq 0 ]; then
+	echo "usage: throwaway-herdr <command> [args...]" >&2
+	exit 2
+fi
+
+for v in $(env | sed -n 's/^\(HERDR_[A-Za-z0-9_]*\)=.*/\1/p'); do
+	unset "$v"
+done
+unset TMUX TMUX_PANE
+
+if ! mkdir -m 700 "$dir" 2>/dev/null; then
+	if [ -L "$dir" ] || [ ! -d "$dir" ] || [ ! -O "$dir" ]; then
+		echo "throwaway-herdr: $dir is not a directory you own (or its parent is missing)" >&2
+		exit 2
+	fi
+	case $(ls -ld "$dir") in
+	drwx------*) ;;
+	*)
+		echo "throwaway-herdr: $dir must have mode 0700" >&2
+		exit 2
+		;;
+	esac
+fi
+mkdir -p "$dir/cfg" "$dir/state" "$dir/run" "$dir/data"
+chmod 700 "$dir/run"
+export THROWAWAY_HERDR_DIR="$dir"
+export XDG_CONFIG_HOME="$dir/cfg" XDG_STATE_HOME="$dir/state" XDG_RUNTIME_DIR="$dir/run" XDG_DATA_HOME="$dir/data"
+exec "$@"
