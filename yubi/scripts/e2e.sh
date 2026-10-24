@@ -14,7 +14,7 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 plugin_src=$(dirname "$here")
 repo=$(dirname "$plugin_src")
-export THROWAWAY_HERDR_DIR="${TMPDIR:-/tmp}/yubi-e2e.$$"
+export THROWAWAY_HERDR_DIR="$(mktemp -d "${TMPDIR:-/tmp}/yubi-e2e.XXXXXX")"
 dir=$THROWAWAY_HERDR_DIR
 sock=yubi-e2e.$$
 
