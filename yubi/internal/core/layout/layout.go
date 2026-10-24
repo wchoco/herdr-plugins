@@ -33,6 +33,9 @@ type Tab struct {
 	Area   Rect   `json:"area"`
 	Target string `json:"focused_pane_id"` // the focused pane, which becomes the Target Pane
 	Panes  []Pane `json:"panes"`
+	// Zoomed: the Target fills the tab. herdr still reports every pane
+	// at its split rect then.
+	Zoomed bool `json:"zoomed"`
 }
 
 // Decode parses a Tab from JSON.
@@ -63,12 +66,14 @@ type Placement struct {
 
 // Place places tab in a w x h overlay. Without a layout, or when the
 // Target Pane is not in it, the Target fills the overlay from its corner.
+// A zoomed Target fills it too: herdr draws it framed over the whole tab,
+// the overlay's own place.
 // A grid that would start above or left of the overlay is drawn from the
 // overlay's edge instead: rows are top-anchored and columns left-anchored,
 // and what does not fit is clipped on the bottom and right.
 func Place(tab *Tab, w, h int) Placement {
 	p := Placement{W: w, H: h, Target: Rect{Width: w, Height: h}}
-	if tab == nil {
+	if tab == nil || tab.Zoomed {
 		return p
 	}
 	found := false
