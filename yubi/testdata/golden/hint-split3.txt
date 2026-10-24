@@ -1,0 +1,38 @@
+text:
+user@host:~/proj$ git status          ││user@host:d/proj$ git push           |
+On branch main                        ││remote: Create a pull request:       |
+Changes not staged for commit:        ││remote:   wttps://github.com/wchoco/h|
+  (use "git add <file>..." to update  ││To github.com:qchoco/herdr-plugins.gi|
+        modified:   yubi/main.go      ││see fttps://example.com/docs and fttp|
+        modified:   README.md         ││nothing to hint on this row          |
+                                      ││user@host:d/proj$ go build s/...     |
+Untracked files:                      ││a/yubi/internal/core/hint/hint.go:12:|
+        yubi/testdata/                │└─────────────────────────────────────|
+                                      │┌─────────────────────────────────────|
+user@host:~/proj$ ls -l               ││                                     |
+total 12                              ││                                     |
+-rw-r--r-- 1 user user 1024 Oct 24 01 ││                                     |
+drwxr-xr-x 3 user user 4096 Oct 24 01 ││                                     |
+-rwxr-xr-x 1 user user 2048 Oct 24 01 ││                                     |
+trailing spaces                       ││                                     |
+                                      ││                                     |
+HINT                                                                         |
+style:
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddhuuuuuudddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddhuuuuuuuuuuuuuuuuuuuuuuuuuu|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddhuuuuuuuuuuuuuuuuuuuuuu|
+ddddddddddddddddddddddddddddddddddddd.bbddddhuuuuuuuuuuuuuuuuuuuuuuudddddhuuu|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddddddddddddddddddddddddddddd|
+ddddddddddddddddddddddddddddddddddddd.bbddddddddddhuuuuuuddddddddddhuuuuddddd|
+ddddddddddddddddddddddddddddddddddddd.bbhuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuudddd|
+ddddddddddddddddddddddddddddddddddddd.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|
+ddddddddddddddddddddddddddddddddddddd.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|
+ddddddddddddddddddddddddddddddddddddd.bb.....................................|
+ddddddddddddddddddddddddddddddddddddd.bb.....................................|
+ddddddddddddddddddddddddddddddddddddd.bb.....................................|
+ddddddddddddddddddddddddddddddddddddd.bb.....................................|
+ddddddddddddddddddddddddddddddddddddd.bb.....................................|
+ddddddddddddddddddddddddddddddddddddd.bb.....................................|
+ddddddddddddddddddddddddddddddddddddd.bb.....................................|
+sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss|

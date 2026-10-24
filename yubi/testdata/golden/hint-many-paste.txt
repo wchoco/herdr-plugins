@@ -1,0 +1,64 @@
+text:
+file nq01           |
+file nf02           |
+file nd03           |
+file ns04           |
+file na05           |
+file p/06           |
+file p/07           |
+file p/08           |
+file p/09           |
+file p/10           |
+file p/11           |
+file p/12           |
+file p/13           |
+file p/14           |
+file p/15           |
+file p/16           |
+file p/17           |
+file p/18           |
+file p/19           |
+file p/20           |
+file p/21           |
+file p/22           |
+file p/23           |
+file p/24           |
+file p/25           |
+file p/26           |
+file p/27           |
+file p/28           |
+file p/29           |
+file p/30           |
+HINT  n  paste      |
+style:
+dddddphuuddddddddddd|
+dddddphuuddddddddddd|
+dddddphuuddddddddddd|
+dddddphuuddddddddddd|
+dddddphuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+ddddduuuuddddddddddd|
+sssssssssmmmmmssssss|

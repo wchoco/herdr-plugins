@@ -1,0 +1,27 @@
+id = "wchoco.yubi"
+name = "yubi"
+version = "0.0.1"
+min_herdr_version = "0.9.5"
+description = "Copy text from the visible screen with hints or line numbers"
+platforms = ["linux", "macos"]
+
+[[build]]
+command = ["go", "build", "-o", "yubi", "."]
+
+[[actions]]
+id = "hint"
+title = "yubi: Hint Mode"
+contexts = ["pane"]
+command = ["./yubi", "action", "hint"]
+
+[[actions]]
+id = "line"
+title = "yubi: Line Mode"
+contexts = ["pane"]
+command = ["./yubi", "action", "line"]
+
+[[panes]]
+id = "ui"
+title = "yubi"
+placement = "overlay"
+command = ["./yubi", "ui"]

@@ -1,0 +1,8 @@
+text:
+                                                            |
+                                                            |
+cannot read target: pane_not_found                          |
+style:
+............................................................|
+............................................................|
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeessssssssssssssssssssssssss|

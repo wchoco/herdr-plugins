@@ -1,0 +1,26 @@
+text:
+11er@host:~/proj$ git status                                |
+10 branch main                                              |
+ 9anges not staged for commit:                              |
+ 8(use "git add <file>..." to update what will be committed)|
+ 7      modified:   yubi/main.go                            |
+ 6      modified:   README.md                               |
+ 5                                                          |
+ 4tracked files:                                            |
+ 3      yubi/testdata/                                      |
+ 2                                                          |
+ 1er@host:~/proj$ ls -l                                     |
+LINE                                                        |
+style:
+nnooooooo.oooooo............................................|
+nn..........................................................|
+nn..........................................................|
+nn..........................................................|
+nn......oooooooooooooooooooooooo............................|
+nn......ooooooooooooooooooooo...............................|
+nn..........................................................|
+nn..........................................................|
+nn......oooooooooooooo......................................|
+nn..........................................................|
+nnooooooo.oooooo............................................|
+ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss|

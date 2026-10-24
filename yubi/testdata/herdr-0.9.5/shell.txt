@@ -1,0 +1,19 @@
+user@host:~/proj$ git status
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+        modified:   yubi/main.go
+        modified:   README.md
+
+Untracked files:
+        yubi/testdata/
+
+user@host:~/proj$ ls -l
+total 12
+-rw-r--r-- 1 user user 1024 Oct 24 01:12 README.md
+drwxr-xr-x 3 user user 4096 Oct 24 01:13 yubi
+-rwxr-xr-x 1 user user 2048 Oct 24 01:14 build.sh
+trailing spaces
+
+
+user@host:~/proj$
