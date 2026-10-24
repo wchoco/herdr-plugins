@@ -4,7 +4,7 @@
 
 ## Security scan
 
-<!-- Required unless this PR changes only Markdown docs. -->
+<!-- Required before this PR is marked ready, unless it changes only Markdown docs. -->
 
 - Type: <!-- changes / codebase -->
 - Effort: <!-- low / medium / high -->
