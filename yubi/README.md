@@ -50,7 +50,7 @@ Each Line Number is drawn over the first cells of its row, in bold black on cyan
 
 - herdr 0.9.5 or newer.
 - Linux or macOS.
-- A Go toolchain, version 1.26 or newer (the `go` line of this repo's `go.mod`). herdr builds yubi from source with `go build` when it installs the plugin.
+- A Go toolchain, version 1.26.10 or newer (the `go` line of this repo's `go.mod`). herdr builds yubi from source with `go build` when it installs the plugin.
 
 ## Install
 
