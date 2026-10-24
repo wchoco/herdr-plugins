@@ -26,6 +26,7 @@ func (f *fakePanes) Exists(_ context.Context, pane string) (bool, error) {
 
 func TestDecide(t *testing.T) {
 	open := &relaunch.Record{Overlay: "w1:p2", Target: "w1:p1", Mode: session.ModeHint}
+	zoomed := &relaunch.Record{Overlay: "w1:p2", Target: "w1:p1", Mode: session.ModeHint, Zoomed: true}
 	tests := []struct {
 		name    string
 		rec     *relaunch.Record
@@ -43,7 +44,19 @@ func TestDecide(t *testing.T) {
 			name: "same mode on the open overlay closes it",
 			rec:  open, live: []string{"w1:p1", "w1:p2"},
 			focused: "w1:p2", mode: session.ModeHint,
-			want: relaunch.Plan{Kind: relaunch.Close, Overlay: "w1:p2"},
+			want: relaunch.Plan{Kind: relaunch.Close, Overlay: "w1:p2", Target: "w1:p1"},
+		},
+		{
+			name: "closing an overlay opened on a zoomed tab zooms it again",
+			rec:  zoomed, live: []string{"w1:p1", "w1:p2"},
+			focused: "w1:p2", mode: session.ModeHint,
+			want: relaunch.Plan{Kind: relaunch.Close, Overlay: "w1:p2", Target: "w1:p1", Zoomed: true},
+		},
+		{
+			name: "switching an overlay opened on a zoomed tab zooms it again",
+			rec:  zoomed, live: []string{"w1:p1", "w1:p2"},
+			focused: "w1:p2", mode: session.ModeLine,
+			want: relaunch.Plan{Kind: relaunch.Switch, Overlay: "w1:p2", Target: "w1:p1", Zoomed: true},
 		},
 		{
 			name: "other mode on the open overlay switches on the original Target Pane",
@@ -52,10 +65,18 @@ func TestDecide(t *testing.T) {
 			want: relaunch.Plan{Kind: relaunch.Switch, Overlay: "w1:p2", Target: "w1:p1"},
 		},
 		{
-			name: "a record whose overlay is gone is ignored",
+			// The overlay ended just before the press (herdr still names
+			// it as focused): it is already closed, so the toggle is done.
+			name: "same mode on an overlay that just ended does nothing",
 			rec:  open, live: []string{"w1:p1"},
 			focused: "w1:p2", mode: session.ModeHint,
-			want: relaunch.Plan{Kind: relaunch.Open, Target: "w1:p2"},
+			want: relaunch.Plan{Kind: relaunch.None},
+		},
+		{
+			name: "other mode on an overlay that just ended opens on the original Target Pane",
+			rec:  open, live: []string{"w1:p1"},
+			focused: "w1:p2", mode: session.ModeLine,
+			want: relaunch.Plan{Kind: relaunch.Open, Target: "w1:p1"},
 		},
 		{
 			name: "a recorded overlay that is not focused is left alone",

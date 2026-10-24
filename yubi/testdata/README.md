@@ -50,7 +50,7 @@ Each `ndjson/<name>.ndjson` holds one request line and herdr's response line, re
 python3 yubi/testdata/herdr-0.9.5/scripts/capture-ndjson.py <pane-id>
 ```
 
-The re-launch captures (`pane-get*`, `plugin-pane-close*`) need any pane and an open yubi overlay (`herdr plugin link yubi`, then `herdr plugin action invoke wchoco.yubi.line`); the script closes the overlay:
+The re-launch captures (`pane-get*`, `plugin-pane-close*`, `pane-zoom*`) need any pane and an open yubi overlay (`herdr plugin link yubi`, then `herdr plugin action invoke wchoco.yubi.line`); the script closes the overlay:
 
 ```sh
 python3 yubi/testdata/herdr-0.9.5/scripts/capture-relaunch.py <pane-id> <overlay-pane-id>

@@ -101,9 +101,25 @@ func TestPlaceTargetMissingFromLayoutFallsBackToFullOverlay(t *testing.T) {
 	}
 }
 
+func TestPlaceZoomedTargetFillsTheOverlay(t *testing.T) {
+	// While a pane is zoomed herdr still reports every pane at its split
+	// rect, but draws the zoomed pane framed over the whole tab, exactly
+	// where the overlay's grid is (seen live on herdr 0.9.5).
+	tb := tab("w1:p1",
+		layout.Pane{ID: "w1:p1", Rect: rect(0, 0, 60, 40)},
+		layout.Pane{ID: "w1:p2", Rect: rect(60, 0, 60, 40)},
+	)
+	tb.Zoomed = true
+	got := layout.Place(tb, 117, 38)
+	want := layout.Placement{W: 117, H: 38, Target: rect(0, 0, 117, 38)}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
 func TestEncodeDecodeRoundTripsHerdrLayoutJSON(t *testing.T) {
 	// The layout object of a herdr pane_layout result decodes as is.
-	raw := `{"area":{"height":40,"width":120,"x":0,"y":0},"focused_pane_id":"w1:p1","panes":[{"focused":true,"pane_id":"w1:p1","rect":{"height":40,"width":60,"x":0,"y":0}},{"focused":false,"pane_id":"w1:p2","rect":{"height":40,"width":60,"x":60,"y":0}}],"splits":[],"tab_id":"w1:t1","workspace_id":"w1","zoomed":false}`
+	raw := `{"area":{"height":40,"width":120,"x":0,"y":0},"focused_pane_id":"w1:p1","panes":[{"focused":true,"pane_id":"w1:p1","rect":{"height":40,"width":60,"x":0,"y":0}},{"focused":false,"pane_id":"w1:p2","rect":{"height":40,"width":60,"x":60,"y":0}}],"splits":[],"tab_id":"w1:t1","workspace_id":"w1","zoomed":true}`
 	tb, err := layout.Decode(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -112,6 +128,7 @@ func TestEncodeDecodeRoundTripsHerdrLayoutJSON(t *testing.T) {
 		Area:   rect(0, 0, 120, 40),
 		Target: "w1:p1",
 		Panes:  []layout.Pane{{ID: "w1:p1", Rect: rect(0, 0, 60, 40)}, {ID: "w1:p2", Rect: rect(60, 0, 60, 40)}},
+		Zoomed: true,
 	}
 	if !reflect.DeepEqual(tb, want) {
 		t.Errorf("decoded %+v, want %+v", tb, want)

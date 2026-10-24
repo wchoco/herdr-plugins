@@ -135,19 +135,21 @@ func (m *Machine) Event(ev Event) []Action {
 	return nil
 }
 
-// Resize handles the overlay's new size. Any change ends the session
-// silently; yubi does not re-render. A paste failure report is the
-// exception: it is drawn again at the new size and waits for a key.
-func (m *Machine) Resize(w, h int) []Action {
+// Resize handles the overlay's new size. When the tab was resized too
+// (tabResized), the Target may have reflowed: the session ends silently,
+// as yubi does not re-render. Otherwise herdr resized only the overlay,
+// e.g. dropping its scrollbar gutter once yubi is on the alternate screen,
+// and the frame is drawn again at the new size with everything in place.
+// A paste failure report is always drawn again and waits for a key.
+func (m *Machine) Resize(w, h int, tabResized bool) []Action {
 	if w == m.place.W && h == m.place.H {
 		return nil
 	}
-	if m.pasteFailed {
-		// Only the size matters: a message draws no panes.
-		m.place.W, m.place.H = w, h
-		return []Action{Redraw{}}
+	if tabResized && !m.pasteFailed {
+		return []Action{Exit{}}
 	}
-	return []Action{Exit{}}
+	m.place.W, m.place.H = w, h
+	return []Action{Redraw{}}
 }
 
 // Key handles one key press.

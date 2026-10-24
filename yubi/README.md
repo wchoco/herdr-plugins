@@ -173,7 +173,7 @@ yubi never copies from an out-of-date screen. It closes silently, with no messag
 - the overlay pane moves;
 - the tab is un-zoomed;
 - focus moves to another pane, tab or workspace;
-- the overlay is resized.
+- the tab is resized, e.g. when you resize the terminal window. When herdr resizes only the overlay (it drops the scrollbar column once yubi takes over the screen), yubi just redraws.
 
 A pending `copied; paste failed` message is the only exception (see [Paste Copy](#paste-copy)).
 

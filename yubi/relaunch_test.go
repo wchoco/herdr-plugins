@@ -18,10 +18,13 @@ type overlay struct {
 }
 
 // fakeHerdr is one tab with a Target Pane that yubi overlays: opening an
-// overlay focuses it, closing one gives focus back to its Target Pane, as
-// herdr's overlay placement does.
+// overlay focuses it and zooms the tab, closing one gives focus back to
+// its Target Pane, as herdr's overlay placement does. Like herdr 0.9.5,
+// closing an overlay with plugin.pane.close leaves the tab un-zoomed even
+// when it was zoomed before the overlay opened.
 type fakeHerdr struct {
 	focused  string
+	zoomed   bool
 	panes    map[string]bool // live panes
 	overlays map[string]overlay
 	next     int
@@ -43,18 +46,29 @@ func (f *fakeHerdr) CloseOverlay(_ context.Context, pane string) error {
 	delete(f.overlays, pane)
 	delete(f.panes, pane)
 	f.focused = o.target
+	f.zoomed = false
+	return nil
+}
+
+func (f *fakeHerdr) Zoom(_ context.Context, pane string) error {
+	if !f.panes[pane] {
+		return &herdr.APIError{Code: "pane_not_found"}
+	}
+	f.zoomed = true
 	return nil
 }
 
 // opener returns the open function launch gets for mode.
-func (f *fakeHerdr) opener(mode session.Mode) func(context.Context, string) (string, error) {
-	return func(_ context.Context, target string) (string, error) {
+func (f *fakeHerdr) opener(mode session.Mode) func(context.Context, string) (string, bool, error) {
+	return func(_ context.Context, target string) (string, bool, error) {
 		id := fmt.Sprintf("w1:p%d", f.next)
 		f.next++
 		f.panes[id] = true
 		f.overlays[id] = overlay{target: target, mode: mode}
 		f.focused = id
-		return id, nil
+		zoomed := f.zoomed
+		f.zoomed = true
+		return id, zoomed, nil
 	}
 }
 
@@ -104,6 +118,77 @@ func TestLaunchSwitchesModeOnTheOriginalTarget(t *testing.T) {
 	want = map[string]overlay{f.focused: {target: "w1:p1", mode: session.ModeHint}}
 	if fmt.Sprint(f.overlays) != fmt.Sprint(want) {
 		t.Errorf("overlays %v, want %v", f.overlays, want)
+	}
+}
+
+func TestLaunchKeepsTheTabZoomed(t *testing.T) {
+	tests := []struct {
+		name  string
+		modes []session.Mode
+	}{
+		{name: "toggle", modes: []session.Mode{session.ModeHint, session.ModeHint}},
+		{name: "switch then toggle", modes: []session.Mode{session.ModeHint, session.ModeLine, session.ModeLine}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, dir := newFakeHerdr(), t.TempDir()
+			f.zoomed = true
+			for _, mode := range tt.modes {
+				f.press(t, dir, mode)
+			}
+			if len(f.overlays) != 0 {
+				t.Fatalf("%d overlays, want 0", len(f.overlays))
+			}
+			if !f.zoomed {
+				t.Error("tab un-zoomed, want it zoomed as before the overlay opened")
+			}
+		})
+	}
+}
+
+func TestLaunchLeavesAnUnzoomedTabUnzoomed(t *testing.T) {
+	f, dir := newFakeHerdr(), t.TempDir()
+	f.press(t, dir, session.ModeHint)
+	f.press(t, dir, session.ModeLine)
+	f.press(t, dir, session.ModeLine)
+	if f.zoomed {
+		t.Error("tab zoomed, want it un-zoomed as before the overlay opened")
+	}
+}
+
+func TestLaunchOnAnOverlayThatJustEnded(t *testing.T) {
+	// The overlay exits on its own just as its binding is pressed: herdr
+	// still runs the action on the overlay's id, which is gone by then.
+	tests := []struct {
+		name string
+		mode session.Mode
+		want int // overlays afterwards
+	}{
+		{name: "same mode", mode: session.ModeHint, want: 0},
+		{name: "other mode", mode: session.ModeLine, want: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, dir := newFakeHerdr(), t.TempDir()
+			f.press(t, dir, session.ModeHint)
+			gone := f.focused
+			delete(f.overlays, gone)
+			delete(f.panes, gone)
+			f.press(t, dir, tt.mode)
+			if len(f.overlays) != tt.want {
+				t.Fatalf("%d overlays, want %d", len(f.overlays), tt.want)
+			}
+			for _, o := range f.overlays {
+				if o.target != "w1:p1" {
+					t.Errorf("overlay on %s, want the Target Pane w1:p1", o.target)
+				}
+			}
+			if tt.want == 0 {
+				if _, err := os.Stat(filepath.Join(dir, stateFile)); !os.IsNotExist(err) {
+					t.Errorf("record kept: %v", err)
+				}
+			}
+		})
 	}
 }
 

@@ -42,6 +42,8 @@ captures = [
     ("pane-get-not-found", {"id": "1", "method": "pane.get", "params": {"pane_id": "w9:p99"}}),
     ("plugin-pane-close", {"id": "1", "method": "plugin.pane.close", "params": {"pane_id": overlay}}),
     ("plugin-pane-close-not-found", {"id": "1", "method": "plugin.pane.close", "params": {"pane_id": overlay}}),
+    ("pane-zoom", {"id": "1", "method": "pane.zoom", "params": {"pane_id": pane, "mode": "on"}}),
+    ("pane-zoom-not-found", {"id": "1", "method": "pane.zoom", "params": {"pane_id": "w9:p99", "mode": "on"}}),
 ]
 os.makedirs(out, exist_ok=True)
 for name, req in captures:
