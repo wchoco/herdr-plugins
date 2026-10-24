@@ -33,6 +33,10 @@ func launch(ctx context.Context, h overlays, stateDir, focused string, mode sess
 	if err != nil {
 		return err
 	}
+	if plan.Kind == relaunch.None {
+		clearRecord(stateDir)
+		return nil
+	}
 	if plan.Kind != relaunch.Open {
 		err := h.CloseOverlay(ctx, plan.Overlay)
 		var apiErr *herdr.APIError

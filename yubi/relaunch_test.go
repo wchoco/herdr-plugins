@@ -107,6 +107,42 @@ func TestLaunchSwitchesModeOnTheOriginalTarget(t *testing.T) {
 	}
 }
 
+func TestLaunchOnAnOverlayThatJustEnded(t *testing.T) {
+	// The overlay exits on its own just as its binding is pressed: herdr
+	// still runs the action on the overlay's id, which is gone by then.
+	tests := []struct {
+		name string
+		mode session.Mode
+		want int // overlays afterwards
+	}{
+		{name: "same mode", mode: session.ModeHint, want: 0},
+		{name: "other mode", mode: session.ModeLine, want: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, dir := newFakeHerdr(), t.TempDir()
+			f.press(t, dir, session.ModeHint)
+			gone := f.focused
+			delete(f.overlays, gone)
+			delete(f.panes, gone)
+			f.press(t, dir, tt.mode)
+			if len(f.overlays) != tt.want {
+				t.Fatalf("%d overlays, want %d", len(f.overlays), tt.want)
+			}
+			for _, o := range f.overlays {
+				if o.target != "w1:p1" {
+					t.Errorf("overlay on %s, want the Target Pane w1:p1", o.target)
+				}
+			}
+			if tt.want == 0 {
+				if _, err := os.Stat(filepath.Join(dir, stateFile)); !os.IsNotExist(err) {
+					t.Errorf("record kept: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func TestLaunchIgnoresALeftoverRecord(t *testing.T) {
 	tests := []struct {
 		name  string
