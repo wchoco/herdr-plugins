@@ -110,6 +110,7 @@ func ui() error {
 			Paster:    client,
 			Terminal:  tty,
 			Events:    client,
+			Layouts:   client,
 		})
 }
 

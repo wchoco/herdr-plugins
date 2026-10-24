@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/session"
 	"github.com/wchoco/herdr-plugins/yubi/internal/fixture"
 )
@@ -38,7 +39,22 @@ type live struct {
 	done   chan error
 }
 
+// fakeLayouts answers pane.layout with a fixed tab, or fails with err.
+type fakeLayouts struct {
+	tab *layout.Tab
+	err error
+}
+
+func (f *fakeLayouts) Layout(context.Context, string) (*layout.Tab, error) {
+	return f.tab, f.err
+}
+
 func startLive(t *testing.T, cfg session.Config, src *fakeSource, events *fakeEvents) *live {
+	t.Helper()
+	return startLiveWith(t, cfg, src, events, nil)
+}
+
+func startLiveWith(t *testing.T, cfg session.Config, src *fakeSource, events *fakeEvents, layouts session.Layouts) *live {
 	t.Helper()
 	l := &live{
 		t:      t,
@@ -51,6 +67,9 @@ func startLive(t *testing.T, cfg session.Config, src *fakeSource, events *fakeEv
 	deps := session.Deps{Source: l.src, Clipboard: l.clip, Terminal: l.term}
 	if events != nil {
 		deps.Events = events
+	}
+	if layouts != nil {
+		deps.Layouts = layouts
 	}
 	go func() { l.done <- session.Run(context.Background(), cfg, deps) }()
 	return l
@@ -176,6 +195,72 @@ func TestResizeEndsTheSessionSilently(t *testing.T) {
 		t.Fatal("session did not take the resize")
 	}
 	l.endedSilently()
+}
+
+// resizeTo resizes the overlay to w x h and signals it.
+func (l *live) resizeTo(w, h int) {
+	l.t.Helper()
+	l.send(session.TabFocused{Tab: "w1:t1"}) // Run has taken its first Size
+	l.term.w, l.term.h = w, h                // ordered before Run's next Size by the send below
+	select {
+	case l.term.resized <- struct{}{}:
+	case <-time.After(time.Second):
+		l.t.Fatal("session did not take the resize")
+	}
+}
+
+// liveTab is the Target's tab as captured when the overlay opened.
+var liveTab = &layout.Tab{
+	Area:  layout.Rect{Width: 123, Height: 41},
+	Panes: []layout.Pane{{ID: "w1:p1", Rect: layout.Rect{Width: 123, Height: 41}}},
+}
+
+func startLiveInTab(t *testing.T, layouts *fakeLayouts) *live {
+	t.Helper()
+	cfg := liveCfg
+	cfg.Layout = liveTab
+	src := &fakeSource{captures: map[string]fixture.Capture{"w1:p1": fixture.Load(t, "cjk")}}
+	return startLiveWith(t, cfg, src, &fakeEvents{ch: make(chan session.Event)}, layouts)
+}
+
+func TestResizeOfTheOverlayAloneRedrawsAtTheNewSize(t *testing.T) {
+	// herdr resizes the overlay on its own, e.g. it drops the scrollbar
+	// gutter once yubi is on the alternate screen. The tab keeps its size,
+	// so the Target has not reflowed and the session goes on.
+	l := startLiveInTab(t, &fakeLayouts{tab: liveTab})
+	l.resizeTo(121, 39)
+	l.key("1")
+	l.key("\x1b[27u")
+	select {
+	case <-l.done:
+	case <-time.After(time.Second):
+		l.t.Fatal("session did not end on Esc")
+	}
+	if len(l.term.frames) != 3 {
+		t.Fatalf("drew %d frames, want 3 (first, resize, key)", len(l.term.frames))
+	}
+	for i, want := range []int{120, 121, 121} {
+		if got := l.term.frames[i].W; got != want {
+			t.Errorf("frame %d is %d wide, want %d", i, got, want)
+		}
+	}
+}
+
+func TestResizeOfTheTabEndsTheSessionSilently(t *testing.T) {
+	tests := []struct {
+		name    string
+		layouts *fakeLayouts
+	}{
+		{"tab resized", &fakeLayouts{tab: &layout.Tab{Area: layout.Rect{Width: 100, Height: 30}}}},
+		{"tab layout unreadable", &fakeLayouts{err: errString("pane_not_found")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := startLiveInTab(t, tt.layouts)
+			l.resizeTo(121, 39)
+			l.endedSilently()
+		})
+	}
 }
 
 func TestResizeSignalWithoutSizeChangeKeepsTheSession(t *testing.T) {

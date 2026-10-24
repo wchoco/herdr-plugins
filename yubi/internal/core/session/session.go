@@ -3,8 +3,8 @@
 // through the adapter interfaces defined here.
 //
 // session is core: it does no I/O of its own and never imports the herdr
-// adapter. The adapter implements PaneSource, Clipboard, Paster, Terminal
-// and EventStream.
+// adapter. The adapter implements PaneSource, Clipboard, Paster, Terminal,
+// EventStream and Layouts.
 package session
 
 import (
@@ -60,6 +60,11 @@ type Terminal interface {
 	Draw(frame *render.Grid) error
 }
 
+// Layouts reads the layout of a pane's tab, as herdr's pane.layout does.
+type Layouts interface {
+	Layout(ctx context.Context, pane string) (*layout.Tab, error)
+}
+
 // Clock is the time source for the lone-Esc timeout.
 type Clock interface {
 	Now() time.Time
@@ -105,6 +110,7 @@ type Deps struct {
 	Paster    Paster // for Paste Copy
 	Terminal  Terminal
 	Events    EventStream // nil: the session is not watched
+	Layouts   Layouts     // nil: every resize counts as the tab's
 	Clock     Clock       // nil means the system clock
 }
 
@@ -225,7 +231,13 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 			apply(m.Neighbour(n.pane, n.scr))
 		case <-d.Terminal.Resized():
 			w, h, err := d.Terminal.Size()
-			if err != nil || apply(m.Resize(w, h)) {
+			if err != nil {
+				return nil
+			}
+			if w == m.place.W && h == m.place.H {
+				continue
+			}
+			if apply(m.Resize(w, h, tabResized(ctx, cfg, d.Layouts))) {
 				return nil
 			}
 		}
@@ -235,4 +247,16 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 			}
 		}
 	}
+}
+
+// tabResized reports whether the Target's tab is no longer the size it was
+// when the overlay opened, so the Target may have reflowed. Without the
+// captured layout, or when the tab cannot be read, it says yes: a stale
+// render is worse than a closed overlay.
+func tabResized(ctx context.Context, cfg Config, layouts Layouts) bool {
+	if cfg.Layout == nil || layouts == nil {
+		return true
+	}
+	tab, err := layouts.Layout(ctx, cfg.Target)
+	return err != nil || tab.Area != cfg.Layout.Area
 }
