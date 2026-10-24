@@ -1,6 +1,6 @@
 # yubi manual test checklist
 
-Run this checklist before every `yubi/vX.Y.Z` tag. It covers what `go test` cannot: real terminals, the clipboard, SSH, and herdr's own key routing. Copy the checklist into the release PR and tick each item there. Note the terminal (and version) used for each section.
+Run this checklist before every `yubi/vX.Y.Z` tag, after `scripts/check.sh` passes with herdr and tmux installed (its `yubi/scripts/e2e.sh` already drives the re-launch and zoom cases through a private herdr). It covers what those checks cannot: real terminals, the clipboard, SSH, and how things look. Copy the checklist into the release PR and tick each item there. Note the terminal (and version) used for each section. A Japanese copy is in [manual-test.ja.md](manual-test.ja.md); change both together.
 
 ## Setup
 
