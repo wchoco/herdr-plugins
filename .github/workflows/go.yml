@@ -16,18 +16,4 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: gofmt
-        run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-            echo "not gofmt-formatted:"; echo "$unformatted"; exit 1
-          fi
-      - run: go vet ./...
-      - run: go test ./...
-      - name: go build
-        run: |
-          for manifest in */herdr-plugin.toml; do
-            (cd "$(dirname "$manifest")" && go build -o /dev/null .)
-          done
-      - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - run: scripts/check.sh
