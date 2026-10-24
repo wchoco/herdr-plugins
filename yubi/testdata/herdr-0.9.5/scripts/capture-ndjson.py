@@ -3,8 +3,7 @@
 
 Usage: capture-ndjson.py <pane-id>
 
-Run it against a throwaway server (see ../../README.md) with
-HERDR_SOCKET_PATH unset or pointing at that server; <pane-id> is a pane
+Run it through scripts/throwaway-herdr (see ../../README.md); <pane-id> is a pane
 showing a fixture. Each output file holds the request line, then the
 response line, exactly as sent and received.
 """
@@ -15,8 +14,9 @@ import sys
 
 here = os.path.dirname(os.path.abspath(__file__))
 out = os.path.join(os.path.dirname(here), "ndjson")
-sock = os.environ.get("HERDR_SOCKET_PATH") or os.path.join(
-    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "herdr", "herdr.sock")
+if "THROWAWAY_HERDR_DIR" not in os.environ:
+    sys.exit("run this through scripts/throwaway-herdr")
+sock = os.path.join(os.environ["XDG_CONFIG_HOME"], "herdr", "herdr.sock")
 pane = sys.argv[1]
 
 

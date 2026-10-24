@@ -24,20 +24,13 @@ Re-capture all fixtures whenever `min_herdr_version` is raised, into a new `herd
 
 ### Capturing
 
-Use a throwaway herdr server so your own session is never touched. In one terminal:
+Run every command below through `scripts/throwaway-herdr` (see `docs/agents/workflow.md`), so your own session is never touched:
 
 ```sh
-d=$(mktemp -d)
-export XDG_CONFIG_HOME=$d/cfg XDG_STATE_HOME=$d/state XDG_RUNTIME_DIR=$d/run XDG_DATA_HOME=$d/data
-unset HERDR_SOCKET_PATH HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_ENV
-herdr server
-```
-
-In a second terminal with the same environment:
-
-```sh
-yubi/testdata/herdr-0.9.5/scripts/capture.sh shell cjk wrap links joined
-herdr server stop
+t=scripts/throwaway-herdr
+$t herdr server &
+$t yubi/testdata/herdr-0.9.5/scripts/capture.sh shell cjk wrap links joined
+$t herdr server stop
 ```
 
 A headless server sizes new panes 120x40. `capture.sh` creates one workspace per fixture, waits for the script to finish, reads the pane and closes the workspace.
@@ -47,25 +40,25 @@ A headless server sizes new panes 120x40. `capture.sh` creates one workspace per
 Each `ndjson/<name>.ndjson` holds one request line and herdr's response line, replayed by the adapter tests' fake socket. They were taken from a pane showing the `cjk` fixture, so the `pane-read-*` texts equal `cjk.txt` and `cjk.ansi`. With the throwaway server running and such a pane open:
 
 ```sh
-python3 yubi/testdata/herdr-0.9.5/scripts/capture-ndjson.py <pane-id>
+$t python3 yubi/testdata/herdr-0.9.5/scripts/capture-ndjson.py <pane-id>
 ```
 
-The re-launch captures (`pane-get*`, `plugin-pane-close*`, `pane-zoom*`) need any pane and an open yubi overlay (`herdr plugin link yubi`, then `herdr plugin action invoke wchoco.yubi.line`); the script closes the overlay:
+The re-launch captures (`pane-get*`, `plugin-pane-close*`, `pane-zoom*`) need any pane and an open yubi overlay (build it, then `$t herdr plugin link yubi` and `$t herdr plugin action invoke wchoco.yubi.line`); the script closes the overlay:
 
 ```sh
-python3 yubi/testdata/herdr-0.9.5/scripts/capture-relaunch.py <pane-id> <overlay-pane-id>
+$t python3 yubi/testdata/herdr-0.9.5/scripts/capture-relaunch.py <pane-id> <overlay-pane-id>
 ```
 
 The layout captures (`pane-layout-*`) need a tab split three ways (`herdr pane split <p1> --direction right`, then `herdr pane split <p2> --direction down`) and no overlay open; `pane-layout-split3` asks about the top right pane, which is not the focused one:
 
 ```sh
-python3 yubi/testdata/herdr-0.9.5/scripts/capture-layout.py <top-right-pane-id>
+$t python3 yubi/testdata/herdr-0.9.5/scripts/capture-layout.py <top-right-pane-id>
 ```
 
 The Paste Copy captures (`pane-send-input*`) need a pane at a shell prompt, which receives the pasted text (no Enter):
 
 ```sh
-python3 yubi/testdata/herdr-0.9.5/scripts/capture-paste.py <pane-id>
+$t python3 yubi/testdata/herdr-0.9.5/scripts/capture-paste.py <pane-id>
 ```
 
 ### Event captures: `ndjson/events-*`
@@ -73,8 +66,8 @@ python3 yubi/testdata/herdr-0.9.5/scripts/capture-paste.py <pane-id>
 Each `ndjson/events-<scenario>.ndjson` holds yubi's `events.subscribe` request line, herdr's response line and every event line pushed after one session change; `events-<scenario>.ids.json` names that scenario's workspace, tab, Target Pane, sibling and overlay. The overlay is a stand-in plugin (`scripts/probe-plugin`) whose pane only sleeps. With the throwaway server running:
 
 ```sh
-herdr plugin link yubi/testdata/herdr-0.9.5/scripts/probe-plugin
-python3 yubi/testdata/herdr-0.9.5/scripts/capture-events.py
+$t herdr plugin link yubi/testdata/herdr-0.9.5/scripts/probe-plugin
+$t python3 yubi/testdata/herdr-0.9.5/scripts/capture-events.py
 ```
 
 `events-subscribe-rejected.ndjson` is a subscription naming a pane that does not exist (herdr answers `pane_not_found` and closes the connection). herdr refuses to move a pane out of a zoomed tab, so `target-moved` un-zooms the tab before moving the Target.

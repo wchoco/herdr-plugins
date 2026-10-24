@@ -4,10 +4,10 @@ change that should (or should not) end the overlay.
 
 Usage: capture-events.py
 
-Run it against a throwaway server (see ../../README.md) with the probe
-plugin linked:
+Run it through scripts/throwaway-herdr (see ../../README.md) with the
+probe plugin linked:
 
-    herdr plugin link yubi/testdata/herdr-0.9.5/scripts/probe-plugin
+    scripts/throwaway-herdr herdr plugin link yubi/testdata/herdr-0.9.5/scripts/probe-plugin
 
 For each scenario the script builds a fresh workspace: Target Pane T with a
 sibling S to its right, then opens the probe overlay O over T (zoomed and
@@ -21,12 +21,14 @@ import json
 import os
 import select
 import socket
+import sys
 import time
 
 here = os.path.dirname(os.path.abspath(__file__))
 out = os.path.join(os.path.dirname(here), "ndjson")
-sock = os.environ.get("HERDR_SOCKET_PATH") or os.path.join(
-    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "herdr", "herdr.sock")
+if "THROWAWAY_HERDR_DIR" not in os.environ:
+    sys.exit("run this through scripts/throwaway-herdr")
+sock = os.path.join(os.environ["XDG_CONFIG_HOME"], "herdr", "herdr.sock")
 
 # yubi's subscription, in yubi's order.
 SUBSCRIBE = {"id": "1", "method": "events.subscribe", "params": {"subscriptions": [
