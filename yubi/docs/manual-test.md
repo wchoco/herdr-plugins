@@ -4,10 +4,11 @@ Run this checklist before every `yubi/vX.Y.Z` tag. It covers what `go test` cann
 
 ## Setup
 
-1. Check out the commit to be tagged. Then link it, which builds it:
+1. Check out the commit to be tagged. Then build it and link it. `plugin link` does not run the manifest's build commands, so build first, and build again after every change:
 
    ```sh
    herdr plugin unlink wchoco.yubi 2>/dev/null; herdr plugin uninstall wchoco.yubi 2>/dev/null
+   (cd yubi && go build -o yubi .)
    herdr plugin link ./yubi
    ```
 
@@ -89,7 +90,7 @@ Run these at a zsh or bash prompt, which turn on bracketed paste, on the test sc
 
 - [ ] **Split**: split the tab three ways (`herdr pane split --current --direction right`, then in the new pane `herdr pane split --current --direction down`), show the test screen in one pane and focus it. `prefix+f` and `prefix+y`: the Target Pane is redrawn exactly where it was, with Hints and Line Numbers only on it. The other panes are faint at their places, with faint rules between panes, and nothing on screen jumps.
 - [ ] **Split, narrow**: in a narrow split pane, print a URL that is cut off at the right edge. `prefix+f`: its Hint is right-aligned to the last visible cell, and typing it copies the full URL.
-- [ ] **Zoomed**: zoom a split pane (`herdr pane zoom --current --on`). `prefix+f` and `prefix+y` work on it, and a copy works.
+- [ ] **Zoomed**: zoom a split pane (`herdr pane zoom --current --on`). `prefix+f` and `prefix+y`: the zoomed pane is redrawn full size exactly where it was, with no other panes or rules, and a copy works. After the overlay closes the pane is still zoomed.
 - [ ] **Single pane filling the tab**: the status row covers the last row and the rightmost columns are clipped (see the README's known limits). Copies still work.
 
 ## Re-launch and mode switch
@@ -103,6 +104,7 @@ Run these at a zsh or bash prompt, which turn on bracketed paste, on the test sc
 
 - [ ] **Target closed**: in the Target Pane run `sleep 5; exit`, then press `prefix+y` within 5 seconds. When the shell exits, the overlay closes by itself with no message.
 - [ ] **Resize**: open the overlay and resize the terminal window: the overlay closes by itself with no message.
+- [ ] **No false resize**: open the overlay and wait a few seconds, then press the same binding again: the overlay closes (it did not close by itself, and no `cannot read target` message appears).
 - [ ] **Focus leaves**: open the overlay and use herdr's key to switch to another tab: the overlay is gone when you come back.
 - [ ] **Un-zoom**: in a split tab, open the overlay and use herdr's zoom toggle key: the overlay closes by itself.
 
