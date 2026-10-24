@@ -1,6 +1,6 @@
 id = "wchoco.yubi"
 name = "yubi"
-version = "0.0.1"
+version = "0.1.0"
 min_herdr_version = "0.9.5"
 description = "Copy text from the visible screen with hints or line numbers"
 platforms = ["linux", "macos"]

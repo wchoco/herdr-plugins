@@ -40,7 +40,7 @@ func TestEmbeddedManifestVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "0.0.1+unknown" {
+	if got != "0.1.0+unknown" {
 		t.Errorf("got %q", got)
 	}
 }
