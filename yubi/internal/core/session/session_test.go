@@ -26,8 +26,9 @@ var update = flag.Bool("update", false, "rewrite render goldens")
 type fakeSource struct {
 	captures map[string]fixture.Capture // by pane id
 	err      error
-	paneErr  map[string]error // a read of this pane fails
-	hang     map[string]bool  // a read of this pane blocks until its context is done
+	paneErr  map[string]error         // a read of this pane fails
+	hang     map[string]bool          // a read of this pane blocks until its context is done
+	gate     map[string]chan struct{} // a read of this pane waits until its channel is closed
 
 	mu    sync.Mutex // reads of other panes run in the background
 	reads []string
@@ -40,6 +41,13 @@ func (s *fakeSource) ReadVisible(ctx context.Context, pane string, f session.For
 	if s.hang[pane] {
 		<-ctx.Done()
 		return "", ctx.Err()
+	}
+	if g := s.gate[pane]; g != nil {
+		select {
+		case <-g:
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
 	}
 	if err := s.paneErr[pane]; err != nil {
 		return "", err

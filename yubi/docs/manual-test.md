@@ -88,10 +88,22 @@ Run these at a zsh or bash prompt, which turn on bracketed paste, on the test sc
 
 ## Layouts
 
-- [ ] **Split**: split the tab three ways (`herdr pane split --current --direction right`, then in the new pane `herdr pane split --current --direction down`), show the test screen in one pane and focus it. `prefix+f` and `prefix+y`: the Target Pane is redrawn exactly where it was, with Hints and Line Numbers only on it. The other panes are faint at their places, with faint rules between panes, and nothing on screen jumps.
+- [ ] **Split**: split the tab three ways (`herdr pane split --current --direction right`, then in the new pane `herdr pane split --current --direction down`), show the test screen in one pane and focus it. `prefix+f` and `prefix+y`: the Target Pane is redrawn exactly where it was. The other panes are faint at their places, with faint rules between panes, and nothing on screen jumps. In Line Mode only the Target Pane has Line Numbers; Hint Mode on the other panes is tested in [Neighbour Panes](#neighbour-panes).
 - [ ] **Split, narrow**: in a narrow split pane, print a URL that is cut off at the right edge. `prefix+f`: its Hint is right-aligned to the last visible cell, and typing it copies the full URL.
 - [ ] **Zoomed**: zoom a split pane (`herdr pane zoom --current --on`). `prefix+f` and `prefix+y`: the zoomed pane is redrawn full size exactly where it was, with no other panes or rules, and a copy works. After the overlay closes the pane is still zoomed. The same holds when it closes by pressing its binding again (`prefix+f` twice), and after `prefix+f`, `prefix+y` and Esc.
 - [ ] **Single pane filling the tab**: the status row covers the last row and the rightmost columns are clipped (see the README's known limits). Copies still work.
+
+## Neighbour Panes
+
+Split the tab three ways as in **Split** above: a left pane, a top right pane and a bottom right pane. Show the test screen in the left pane and in the bottom right pane, run `ls -d /*` in the top right pane, then focus the bottom right pane. It is the Target Pane; the left pane is Neighbour Pane `n` and the top right pane is Neighbour Pane `b` (labels go from the end of the alphabet, top to bottom, then left to right).
+
+- [ ] `prefix+f`: Hints appear in all three panes. The left pane's Hints start with `n` (e.g. `na`) and the top right pane's with `b`, drawn with the label included. The Target Pane's Hints are one or two letters and none starts with `n` or `b`.
+- [ ] The test screen's URL has one Hint in the Target Pane and one `n` Hint in the left pane.
+- [ ] Type `n`: only the left pane's Hints stay, with the `n` drawn faint. Backspace brings all Hints back. Type a left pane Hint in full, e.g. `na`: the overlay closes and the clipboard holds that Match from the left pane.
+- [ ] `prefix+f`, type a `b` Hint: the clipboard holds that path from the top right pane.
+- [ ] `prefix+f`, type an `n` Hint with an uppercase first letter (e.g. `Na`): the `paste` marker appears after `N`, then the text is pasted on the Target Pane's prompt (the bottom right pane), not run, and not in the left pane.
+- [ ] Open the same layout three times: the labels and Hints are the same every time.
+- [ ] **Short alphabet**: put `hint.alphabet = "asd"` in yubi's `config.toml`. `prefix+f`: the left pane gets the label `d`, the top right pane gets no Hints and is only drawn faint, and the Target Pane's Hints use only `a` and `s`. Remove the `config.toml` again.
 
 ## Re-launch and mode switch
 

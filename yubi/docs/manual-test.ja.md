@@ -90,10 +90,22 @@ bracketed paste を有効にする zsh か bash のプロンプトで、テス�
 
 ## レイアウト
 
-- [ ] **分割**：タブを 3 つに分ける（`herdr pane split --current --direction right`、続いて新しいペインで `herdr pane split --current --direction down`）。そのうち 1 つにテスト画面を出してフォーカスする。`prefix+f` と `prefix+y`：Target Pane がもとの位置にそのまま描き直され、Hint と Line Number はそのペインにだけ出る。ほかのペインはもとの位置に薄く表示され、ペインの間の罫線も薄い。画面のどこも動かない。
+- [ ] **分割**：タブを 3 つに分ける（`herdr pane split --current --direction right`、続いて新しいペインで `herdr pane split --current --direction down`）。そのうち 1 つにテスト画面を出してフォーカスする。`prefix+f` と `prefix+y`：Target Pane がもとの位置にそのまま描き直される。ほかのペインはもとの位置に薄く表示され、ペインの間の罫線も薄い。画面のどこも動かない。Line Mode では Line Number は Target Pane にだけ出る。ほかのペインでの Hint Mode は [Neighbour Pane](#neighbour-pane) で確かめる。
 - [ ] **分割・狭い**：狭い分割ペインに、右端で切れる URL を出す。`prefix+f`：その Hint は見えている最後のセルに右寄せされ、打つと URL 全体がコピーされる。
 - [ ] **ズーム中**：分割ペインをズームする（`herdr pane zoom --current --on`）。`prefix+f` と `prefix+y`：ズーム中のペインがもとの位置に全面の大きさで描き直され、ほかのペインも罫線も出ない。コピーもできる。オーバーレイが閉じたあとも、ペインはズームしたまま。バインドをもう一度押して閉じたとき（`prefix+f` を 2 回）と、`prefix+f`、`prefix+y`、Esc のあとも同じ。
 - [ ] **タブ全体を占める 1 つのペイン**：ステータス行が最後の行を覆い、右端の何列かが切れる（README の既知の制限を参照）。コピーはできる。
+
+## Neighbour Pane
+
+上の**分割**と同じようにタブを 3 つに分ける：左のペイン、右上のペイン、右下のペイン。左のペインと右下のペインにテスト画面を出し、右上のペインで `ls -d /*` を実行してから、右下のペインにフォーカスする。右下が Target Pane で、左のペインが Neighbour Pane `n`、右上のペインが Neighbour Pane `b` になる（ラベルはアルファベットの末尾から、上から下、次に左から右の順に付く）。
+
+- [ ] `prefix+f`：3 つのペインすべてに Hint が出る。左のペインの Hint は `n` で始まり（例：`na`）、右上のペインの Hint は `b` で始まり、ラベルも含めて描かれる。Target Pane の Hint は 1〜2 文字で、`n` や `b` で始まるものはない。
+- [ ] テスト画面の URL には、Target Pane で Hint が 1 つ、左のペインで `n` の Hint が 1 つ付く。
+- [ ] `n` を打つ：左のペインの Hint だけが残り、`n` は薄く描かれる。Backspace ですべての Hint が戻る。左のペインの Hint を最後まで打つ（例：`na`）：オーバーレイが閉じ、クリップボードに左のペインのその Match が入っている。
+- [ ] `prefix+f` で `b` の Hint を打つ：クリップボードに右上のペインのそのパスが入っている。
+- [ ] `prefix+f` で `n` の Hint を、1 文字目を大文字にして打つ（例：`Na`）：`N` のあとに `paste` の印が出て、テキストは Target Pane（右下のペイン）のプロンプトに貼られ、実行されない。左のペインには貼られない。
+- [ ] 同じレイアウトで 3 回開く：ラベルも Hint も毎回同じ。
+- [ ] **短いアルファベット**：yubi の `config.toml` に `hint.alphabet = "asd"` を書く。`prefix+f`：左のペインにラベル `d` が付き、右上のペインには Hint が出ず薄く表示されるだけで、Target Pane の Hint は `a` と `s` だけを使う。`config.toml` はもとに戻す。
 
 ## 再起動とモード切り替え
 

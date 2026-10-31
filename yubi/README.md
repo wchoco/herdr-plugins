@@ -7,7 +7,7 @@ yubi is a [herdr](https://herdr.dev) plugin that copies text from a pane's visib
 
 Both modes can also do a **Paste Copy**, which copies the text and then pastes it into the pane. By default yubi copies with OSC 52, so the text reaches the clipboard of the machine you are sitting at, whether herdr runs locally, over SSH or with `herdr --remote`.
 
-The pane yubi copies from is the **Target Pane**: the pane that had focus when you pressed the key.
+The pane yubi copies from is the **Target Pane**: the pane that had focus when you pressed the key. In a split tab, Hint Mode can also copy from the other panes of the tab (see [Neighbour Panes](#neighbour-panes)).
 
 ## Hint Mode
 
@@ -84,7 +84,7 @@ Then run `herdr server reload-config`, or restart herdr.
 
 ## Usage
 
-Focus the pane you want to copy from and press a yubi key. yubi opens a full-tab overlay that redraws the tab as it was. In a split tab, the Target Pane is drawn at its own position and the other panes are drawn faint at theirs, with faint rules between them. The other panes are for orientation only: only the Target Pane has Hints and Line Numbers. The bottom row of the overlay is the status row. It shows the mode, what you have typed, and errors.
+Focus the pane you want to copy from and press a yubi key. yubi opens a full-tab overlay that redraws the tab as it was. In a split tab, the Target Pane is drawn at its own position and the other panes, the **Neighbour Panes**, are drawn faint at theirs, with faint rules between them. In Hint Mode the Neighbour Panes get Hints too (see [Neighbour Panes](#neighbour-panes)); in Line Mode only the Target Pane has Line Numbers. The bottom row of the overlay is the status row. It shows the mode, what you have typed, and errors.
 
 When a copy succeeds, the overlay closes. With OSC 52, herdr shows its own "copied" toast.
 
@@ -103,7 +103,21 @@ Notes on Hints:
 - Hints are one or two letters, and no Hint is the start of another.
 - Identical Matches share one Hint.
 - With the default 26-letter alphabet there are at most 676 Hints. Matches beyond that get no Hint.
-- A Match that runs past the right edge of the Target Pane still gets a Hint, right-aligned to the last visible cell, and its full text is copied.
+- A Match that runs past the right edge of its pane still gets a Hint, right-aligned to the last visible cell, and its full text is copied.
+
+### Neighbour Panes
+
+In a split tab, Hint Mode puts Hints on the Matches of every Neighbour Pane as well, so you can copy from another pane without moving focus:
+
+- Each Neighbour Pane gets a **Pane Label**: one letter, fixed when the overlay opens. Labels are taken from the end of the Hint alphabet, one per pane in reading order (top to bottom, then left to right). With the default alphabet the first two Neighbour Panes are `n` and `b`. The same layout always gets the same labels.
+- A Neighbour Pane's Hints are its Pane Label followed by Hints assigned within that pane alone, and they are drawn with the label included, e.g. `na`. Type exactly what you see.
+- The Target Pane has no label. Its Hints never use a label letter, so they stay one or two letters long.
+- Typing a Pane Label leaves only that pane's Hints visible.
+- Each pane's Hints follow the rules above on their own: identical Matches share one Hint within a pane, and the same text in two panes gets one Hint in each.
+- Neighbour Panes are read in the background and their Hints appear as each read arrives. No Hint already on screen changes when another pane arrives. You can type a Pane Label before its pane has arrived; its Hints then appear, filtered, once it does.
+- An uppercase first letter (`Na`) is a Paste Copy, and it always pastes into the Target Pane.
+- The Target Pane always keeps at least two letters of the alphabet. With a short custom alphabet, Neighbour Panes past the last label that fits get no label and no Hints, and are only drawn faint.
+- In a zoomed tab only the Target Pane is shown, as before.
 
 ### Line Mode keys
 
@@ -135,7 +149,7 @@ The commit keys can be changed in the config. Alt on any commit key always does 
 
 ### Paste Copy
 
-A Paste Copy first copies the text, then sends it to the Target Pane as typed input:
+A Paste Copy first copies the text, then sends it to the Target Pane as typed input, whichever pane the text came from:
 
 - yubi never presses Enter, so a pasted command is never run.
 - herdr wraps the text in bracketed paste when the Target Pane has bracketed paste turned on, which most shells and editors do. A multi-line paste therefore stays a single paste.
@@ -167,7 +181,7 @@ In these states nothing can be selected, and any key closes the overlay. Errors 
 
 ### When the overlay closes by itself
 
-yubi never copies from an out-of-date screen. It closes silently, with no message, when:
+yubi never copies from an out-of-date Target Pane. It closes silently, with no message, when:
 
 - the Target Pane closes, exits or moves;
 - the overlay pane moves;
@@ -176,6 +190,8 @@ yubi never copies from an out-of-date screen. It closes silently, with no messag
 - the tab is resized, e.g. when you resize the terminal window. When herdr resizes only the overlay (it drops the scrollbar column once yubi takes over the screen), yubi just redraws.
 
 A pending `copied; paste failed` message is the only exception (see [Paste Copy](#paste-copy)).
+
+A Neighbour Pane closing, exiting or moving does not close the overlay. Its text, as read when the overlay opened, can still be copied.
 
 ## Configuration
 

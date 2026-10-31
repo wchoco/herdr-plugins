@@ -20,14 +20,19 @@ func targetTab(cfg Config) *layout.Tab {
 }
 
 // Neighbour hands the machine the screen of a Neighbour Pane, read in the
-// background. It is drawn dimmed in that pane's grid; a pane that is not
-// a Neighbour Pane is ignored.
+// background. It is drawn in that pane's grid: in Hint Mode a pane with a
+// Pane Label gets its Hints, built once from its own Matches and never
+// rebuilt, and is otherwise drawn dimmed. A pane that is not a Neighbour
+// Pane is ignored.
 func (m *Machine) Neighbour(pane string, scr screen.Screen) []Action {
 	p := m.neighbour(pane)
 	if p == nil {
 		return nil
 	}
 	p.arrive(scr, m.place.H)
+	if m.hint != nil && p.label != "" {
+		p.findHints(m.place.H, m.settings.Patterns, m.settings.Alphabet)
+	}
 	return []Action{Redraw{}}
 }
 

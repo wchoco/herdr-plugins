@@ -11,7 +11,9 @@ import (
 )
 
 // hintState is Hint Mode's part of the Machine. The Matches and Hints
-// are held per Visible Pane.
+// are held per Visible Pane: a Neighbour Pane's Hints start with its Pane
+// Label, so typing filters across every pane by prefix, and a typed Pane
+// Label of a pane not read yet stays typed.
 type hintState struct {
 	panes []*visiblePane // the Machine's Visible Panes
 	typed string         // Hint characters typed so far
@@ -33,14 +35,14 @@ func NewHintAt(scr screen.Screen, p layout.Placement) *Machine {
 }
 
 func newHint(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
-	m := &Machine{settings: settings, place: p, panes: visiblePanes(p)}
+	m := &Machine{settings: settings, place: p, panes: visiblePanes(p, settings.Alphabet)}
 	t := m.target()
 	t.arrive(scr, p.H)
 	if t.num.Max() == 0 {
 		m.inform("nothing to copy")
 		return m
 	}
-	t.findHints(p.H, settings)
+	t.findHints(p.H, settings.Patterns, targetAlphabet(settings.Alphabet, m.panes))
 	if len(t.matches) == 0 {
 		m.inform("no matches")
 		return m
@@ -73,6 +75,10 @@ func (s *hintState) key(k keys.Key) []Action {
 		paste := s.paste || s.typed == "" && upper
 		continues := false
 		for _, p := range s.panes {
+			if p.label == next && p.read == paneUnread {
+				// The pane's Hints show up, filtered, when it arrives.
+				continues = true
+			}
 			for text, h := range p.hints {
 				if h == next {
 					if paste {

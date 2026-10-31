@@ -51,11 +51,18 @@ func TestLayoutRenderGoldens(t *testing.T) {
 		// under the status row.
 		{name: "line-split2", mode: session.ModeLine, target: "cjk", tab: twoPanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p2": "shell"}, typed: "3"},
+		// The neighbour has Pane Label "n": its Hints are drawn with it
+		// (na, ns, ...).
 		{name: "hint-split2", mode: session.ModeHint, target: "links", tab: twoPanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p2": "shell"}},
+		// Typing the Pane Label leaves only the neighbour's Hints, with
+		// the label drawn as typed.
+		{name: "hint-split2-label-typed", mode: session.ModeHint, target: "links", tab: twoPanes, w: 77, h: 18,
+			neighbours: map[string]string{"w1:p2": "shell"}, typed: "n"},
 		// The Target top right is clipped at its own grid: rows below row
 		// 8 get no Hints, URLs past its right edge get right-aligned
-		// Hints. The read of w1:p3 failed, so it is blank.
+		// Hints. The left neighbour is labelled "n"; w1:p3, labelled
+		// "b", is not read yet, so it is blank.
 		{name: "hint-split3", mode: session.ModeHint, target: "links", tab: threePanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p1": "shell"}},
 		{name: "line-split3", mode: session.ModeLine, target: "links", tab: threePanes, w: 77, h: 18,

@@ -68,7 +68,7 @@ func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
 }
 
 func newLine(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
-	m := &Machine{settings: settings, place: p, panes: visiblePanes(p)}
+	m := &Machine{settings: settings, place: p, panes: visiblePanes(p, settings.Alphabet)}
 	m.target().arrive(scr, p.H)
 	if m.target().num.Max() == 0 {
 		m.inform("nothing to copy")
@@ -256,14 +256,19 @@ func (m *Machine) selection() ([]int, error) {
 }
 
 // drawPanes draws the pane frames as faint rules, then each Visible Pane
-// in its grid: the Neighbour Panes read so far dimmed, then the Target
+// in its grid: the Neighbour Panes read so far, with their Hints in Hint
+// Mode when they have a Pane Label and dimmed otherwise, then the Target
 // Pane with the current mode's Hints or Line Numbers.
 func (m *Machine) drawPanes(g *render.Grid) {
 	for _, f := range m.place.Frames {
 		g.Box(f.X, f.Y, f.Width, f.Height, render.Rule)
 	}
 	for _, p := range m.panes[1:] {
-		drawDimmed(g, p)
+		if m.hint != nil && p.label != "" && p.read == paneRead {
+			m.hint.draw(g, p, m.place.H)
+		} else {
+			drawDimmed(g, p)
+		}
 	}
 	if m.hint != nil {
 		m.hint.draw(g, m.target(), m.place.H)
