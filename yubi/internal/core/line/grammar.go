@@ -47,10 +47,11 @@ var ErrMixed = errors.New("one pane at a time")
 
 // ParsePane parses Line Mode input that may name a pane: Parse's grammar,
 // with an optional Pane Label (one lowercase letter) at the start of the
-// input. It returns the label, "" for none, and the ranges. A later item
+// input. It returns the label, "" for none, and the ranges. A label that
+// known rejects names no pane, so the input is ErrMalformed. A later item
 // may repeat the same label, but an item that names another pane is
 // ErrMixed: `3,s2` mixes the unlabelled pane with pane s.
-func ParsePane(input string) (string, []Range, error) {
+func ParsePane(input string, known func(label string) bool) (string, []Range, error) {
 	items := strings.Split(input, ",")
 	labels := make([]string, len(items))
 	for i, item := range items {
@@ -59,6 +60,11 @@ func ParsePane(input string) (string, []Range, error) {
 	ranges, err := Parse(strings.Join(items, ","))
 	if err != nil {
 		return "", nil, err
+	}
+	for _, l := range labels {
+		if l != "" && !known(l) {
+			return "", nil, ErrMalformed
+		}
 	}
 	for _, l := range labels[1:] {
 		if l != "" && l != labels[0] {

@@ -293,14 +293,11 @@ func blank(scr screen.Screen, rows []int) bool {
 // selection parses the input and returns the pane it names and the rows
 // it selects there. Input with no Pane Label names the Target Pane.
 func (m *Machine) selection() (*visiblePane, []int, error) {
-	label, ranges, err := line.ParsePane(m.input)
+	label, ranges, err := line.ParsePane(m.input, func(l string) bool { return m.paneByLabel(l) != nil })
 	if err != nil {
 		return nil, nil, err
 	}
 	p := m.paneByLabel(label)
-	if p == nil {
-		return nil, nil, line.ErrMalformed
-	}
 	switch p.read {
 	case paneUnread:
 		return nil, nil, errors.New("pane " + label + " not read yet")
