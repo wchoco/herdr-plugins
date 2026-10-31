@@ -45,19 +45,39 @@ func TestLayoutRenderGoldens(t *testing.T) {
 		tab        *layout.Tab
 		w, h       int
 		neighbours map[string]string // pane id -> capture; a missing pane stays blank
+		unreadable []string          // panes whose read failed
 		typed      string
 	}{
 		// The Target re-renders over itself on the left; its last row is
-		// under the status row.
+		// under the status row. The neighbour, Pane Label "n", has its
+		// own Line Numbers drawn after the label (n1, n2, ...).
 		{name: "line-split2", mode: session.ModeLine, target: "cjk", tab: twoPanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p2": "shell"}, typed: "3"},
+		// Labelled input selects rows of the neighbour only.
+		{name: "line-split2-neighbour-selected", mode: session.ModeLine, target: "cjk", tab: twoPanes, w: 77, h: 18,
+			neighbours: map[string]string{"w1:p2": "shell"}, typed: "n2-4"},
+		// The neighbour has Pane Label "n": its Hints are drawn with it
+		// (na, ns, ...).
 		{name: "hint-split2", mode: session.ModeHint, target: "links", tab: twoPanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p2": "shell"}},
+		// Typing the Pane Label leaves only the neighbour's Hints, with
+		// the label drawn as typed.
+		{name: "hint-split2-label-typed", mode: session.ModeHint, target: "links", tab: twoPanes, w: 77, h: 18,
+			neighbours: map[string]string{"w1:p2": "shell"}, typed: "n"},
 		// The Target top right is clipped at its own grid: rows below row
 		// 8 get no Hints, URLs past its right edge get right-aligned
-		// Hints. The read of w1:p3 failed, so it is blank.
+		// Hints. The left neighbour is labelled "n"; w1:p3, labelled
+		// "b", is not read yet, so it is blank.
 		{name: "hint-split3", mode: session.ModeHint, target: "links", tab: threePanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p1": "shell"}},
+		// w1:p3, labelled "b", could not be read: it is blank like a pane
+		// not read yet, and the status row notes it on the right.
+		{name: "hint-split3-unreadable", mode: session.ModeHint, target: "links", tab: threePanes, w: 77, h: 18,
+			neighbours: map[string]string{"w1:p1": "shell"}, unreadable: []string{"w1:p3"}},
+		// Both neighbours are numbered after their labels: "n" on the
+		// left, "b" below the Target, counted from its own last
+		// non-blank displayed row. The unlabelled input selects in the
+		// Target only.
 		{name: "line-split3", mode: session.ModeLine, target: "links", tab: threePanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p1": "shell", "w1:p3": "cjk"}, typed: "2-3"},
 		// A full-tab Target: the status row is over its last displayed
@@ -83,6 +103,11 @@ func TestLayoutRenderGoldens(t *testing.T) {
 			for id, c := range tt.neighbours {
 				if got := m.Neighbour(id, parse(t, c)); !reflect.DeepEqual(got, []session.Action{session.Redraw{}}) {
 					t.Errorf("Neighbour(%s) = %v, want a redraw", id, got)
+				}
+			}
+			for _, id := range tt.unreadable {
+				if got := m.NeighbourUnreadable(id, errors.New("pane_not_found")); !reflect.DeepEqual(got, []session.Action{session.Redraw{}}) {
+					t.Errorf("NeighbourUnreadable(%s) = %v, want a redraw", id, got)
 				}
 			}
 			for _, r := range tt.typed {
@@ -216,16 +241,21 @@ func TestSlowNeighbourNeverDelaysTheOverlay(t *testing.T) {
 	}
 }
 
-func TestNeighbourIsDrawnDimmedWhenItsReadArrives(t *testing.T) {
+func TestNeighbourIsNumberedWhenItsReadArrives(t *testing.T) {
 	src := &fakeSource{captures: map[string]fixture.Capture{"w1:p1": fixture.Load(t, "cjk"), "w1:p2": fixture.Load(t, "shell")}}
 	term := newLiveTerminal(77, 18)
 	done := runLive(t, src, &fakeClipboard{}, term, twoPanes, session.ModeLine)
 	var g *render.Grid
 	for g = term.next(t); !strings.Contains(g.RowText(0), "git status"); g = term.next(t) {
 	}
-	// The neighbour's grid starts at column 40 of the overlay, and is dim.
-	if c := g.Cell(0, 40); c.Text != "u" || c.Role != render.Dim {
-		t.Errorf("neighbour cell %+v", c)
+	// The neighbour's grid starts at column 40 of the overlay. Its rows
+	// are drawn like the Target's, Line Numbers after its Pane Label "n"
+	// over the first cells ("user..." under "n16").
+	if c := g.Cell(0, 40); c.Text != "n" || c.Role != render.LineNumber {
+		t.Errorf("neighbour label cell %+v", c)
+	}
+	if c := g.Cell(0, 43); c.Text != "r" || c.Role != render.Text {
+		t.Errorf("neighbour text cell %+v", c)
 	}
 	close(term.input)
 	wait(t, done)
@@ -236,7 +266,7 @@ func TestNeighbourIsDrawnDimmedWhenItsReadArrives(t *testing.T) {
 	}
 }
 
-func TestFailingNeighbourLeavesItsRectBlankSilently(t *testing.T) {
+func TestFailingNeighbourStillLetsTheTargetBeCopied(t *testing.T) {
 	src := &fakeSource{
 		captures: map[string]fixture.Capture{"w1:p1": fixture.Load(t, "cjk")},
 		paneErr:  map[string]error{"w1:p2": errors.New("pane_not_found")},

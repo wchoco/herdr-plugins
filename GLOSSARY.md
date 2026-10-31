@@ -5,15 +5,23 @@ Plugins that extend herdr, the terminal workspace manager for AI coding agents.
 ## yubi
 
 **Target Pane**:
-The herdr pane whose visible screen content yubi copies from.
-_Avoid_: source pane, current pane
+The herdr pane that had focus when yubi opened; a Paste Copy pastes into it, whichever Visible Pane the text came from.
+_Avoid_: source pane, current pane, focused pane
+
+**Visible Pane**:
+A pane of the Target Pane's tab that yubi draws on its overlay, the Target Pane included; yubi copies from the visible screens of Visible Panes. In a zoomed tab the Target Pane is the only Visible Pane.
+_Avoid_: source pane, all panes
+
+**Neighbour Pane**:
+A Visible Pane other than the Target Pane.
+_Avoid_: other pane, sibling pane
 
 **Match**:
-A string on the Target Pane's visible screen that fits one of yubi's patterns and is a copy candidate.
+A string on a Visible Pane's visible screen that fits one of yubi's patterns and is a copy candidate.
 _Avoid_: candidate, token, hit
 
 **Pattern**:
-A rule that finds Matches on the Target Pane's visible screen; it is either a Built-in Pattern or a Custom Pattern.
+A rule that finds Matches on a Visible Pane's visible screen; it is either a Built-in Pattern or a Custom Pattern.
 _Avoid_: regex, rule, matcher
 
 **Built-in Pattern**:
@@ -25,12 +33,16 @@ A Pattern the user defines; it takes priority over every Built-in Pattern.
 _Avoid_: user pattern, extra pattern
 
 **Hint**:
-A short label drawn over a Match; typing it copies that Match.
+A short label drawn over a Match; typing it copies that Match. A Neighbour Pane's Hints start with its Pane Label.
 _Avoid_: tag, key, label
 
 **Line Number**:
-The number of a line on the Target Pane's visible screen, counted upward from 1 at the last non-blank line yubi displays.
+The number of a line on a Visible Pane's visible screen, counted upward from 1 at that pane's last non-blank line yubi displays.
 _Avoid_: row, index, line hint
+
+**Pane Label**:
+A letter, fixed when yubi opens, that names a Neighbour Pane; it starts every Hint and Line Number typed for that pane. The Target Pane has none. The Target Pane always keeps two letters of the Hint alphabet, so a Neighbour Pane past the last label that fits has no Pane Label: it is drawn faint, with no Hints or Line Numbers, and nothing on it can be copied.
+_Avoid_: pane hint, prefix, pane key
 
 **Hint Mode**:
 The yubi mode that shows a Hint on each Match.

@@ -7,7 +7,7 @@ yubi is a [herdr](https://herdr.dev) plugin that copies text from a pane's visib
 
 Both modes can also do a **Paste Copy**, which copies the text and then pastes it into the pane. By default yubi copies with OSC 52, so the text reaches the clipboard of the machine you are sitting at, whether herdr runs locally, over SSH or with `herdr --remote`.
 
-The pane yubi copies from is the **Target Pane**: the pane that had focus when you pressed the key.
+yubi copies from the **Visible Panes**: the panes of the tab it draws on its overlay. The **Target Pane** is the pane that had focus when you pressed the key, and a Paste Copy always pastes into it. In a split tab the Visible Panes besides the Target Pane are the **Neighbour Panes**, and both modes copy from them too (see [Neighbour Panes](#neighbour-panes) and [Neighbour Panes in Line Mode](#neighbour-panes-in-line-mode)).
 
 ## Hint Mode
 
@@ -84,7 +84,7 @@ Then run `herdr server reload-config`, or restart herdr.
 
 ## Usage
 
-Focus the pane you want to copy from and press a yubi key. yubi opens a full-tab overlay that redraws the tab as it was. In a split tab, the Target Pane is drawn at its own position and the other panes are drawn faint at theirs, with faint rules between them. The other panes are for orientation only: only the Target Pane has Hints and Line Numbers. The bottom row of the overlay is the status row. It shows the mode, what you have typed, and errors.
+Focus the pane you want to copy from and press a yubi key. yubi opens a full-tab overlay that redraws the tab as it was. In a split tab, every Visible Pane is drawn at its own position, with faint rules between them. A Neighbour Pane is drawn like the Target Pane, with Hints in Hint Mode (see [Neighbour Panes](#neighbour-panes)) and Line Numbers in Line Mode (see [Neighbour Panes in Line Mode](#neighbour-panes-in-line-mode)). Only a Neighbour Pane past the last Pane Label that fits is drawn faint, with neither. The bottom row of the overlay is the status row. It shows the mode, what you have typed, and errors.
 
 When a copy succeeds, the overlay closes. With OSC 52, herdr shows its own "copied" toast.
 
@@ -103,13 +103,30 @@ Notes on Hints:
 - Hints are one or two letters, and no Hint is the start of another.
 - Identical Matches share one Hint.
 - With the default 26-letter alphabet there are at most 676 Hints. Matches beyond that get no Hint.
-- A Match that runs past the right edge of the Target Pane still gets a Hint, right-aligned to the last visible cell, and its full text is copied.
+- A Match that runs past the right edge of its pane still gets a Hint, right-aligned to the last visible cell, and its full text is copied.
+
+### Neighbour Panes
+
+In a split tab, Hint Mode puts Hints on the Matches of every Neighbour Pane as well, so you can copy from a Neighbour Pane without moving focus:
+
+- Each Neighbour Pane gets a **Pane Label**: one letter, fixed when the overlay opens. Labels are taken from the end of the Hint alphabet, one per pane in reading order (top to bottom, then left to right). With the default alphabet the first two Neighbour Panes are `n` and `b`. The same layout always gets the same labels, and Line Mode uses the same labels, so switching modes keeps them.
+- A Neighbour Pane's Hints are its Pane Label followed by Hints assigned within that pane alone, and they are drawn with the label included, e.g. `na`. Type exactly what you see.
+- The Target Pane has no label. Its Hints never use a label letter, so they stay one or two letters long.
+- Typing a Pane Label leaves only that pane's Hints visible.
+- Each pane's Hints follow the rules above on their own: identical Matches share one Hint within a pane, and the same text in two panes gets one Hint in each.
+- Neighbour Panes are read in the background and their Hints appear as each read arrives. No Hint already on screen changes when another Neighbour Pane arrives. You can type a Pane Label before its pane has arrived; its Hints then appear, filtered, once it does.
+- An uppercase first letter (`Na`) is a Paste Copy, and it always pastes into the Target Pane.
+- The Target Pane always keeps at least two letters of the alphabet. With a short custom alphabet, Neighbour Panes past the last label that fits get no label and no Hints, and are only drawn faint.
+- Hint Mode opens even when the Target Pane is empty or has no Match, so you can copy from a Neighbour Pane that has one. `no matches` and `nothing to copy` are shown only once every pane has been read (see [Messages](#messages)).
+- A Neighbour Pane that could not be read is drawn blank and keeps its Pane Label, so the other Neighbour Panes keep theirs. The right end of the status row notes it, e.g. `pane n unreadable` (or `panes n,b unreadable`), when there is room beside what you typed and any error; on a narrow overlay the note is left out. Typing its label shows `pane <label> unreadable` and types nothing.
+- In a zoomed tab only the Target Pane is shown, as before.
 
 ### Line Mode keys
 
 | Key | Action |
 |---|---|
 | `0`-`9`, `-`, `,` | Edit the input. |
+| `a`-`z` | In a split tab, a Pane Label at the start of the input or of an item (see [Neighbour Panes in Line Mode](#neighbour-panes-in-line-mode)). Ignored elsewhere, and in a tab with one pane. |
 | Backspace | Delete one character. |
 | Ctrl-U | Clear the input. |
 | Enter | Copy the selected lines. |
@@ -133,9 +150,23 @@ What gets copied:
 
 The commit keys can be changed in the config. Alt on any commit key always does the Paste Copy for that key.
 
+### Neighbour Panes in Line Mode
+
+In a split tab, Line Mode numbers the rows of every Neighbour Pane too, so you can copy lines from a Neighbour Pane without moving focus:
+
+- Each Visible Pane counts its own Line Numbers up from 1 at its own last non-blank displayed row.
+- A Neighbour Pane's Line Numbers are drawn at the start of each row with its Pane Label in front, e.g. `n1`, `n2`. The labels are the same as in Hint Mode (see [Neighbour Panes](#neighbour-panes)). The Target Pane's Line Numbers have no label, as before.
+- Start the input with a Pane Label to select lines of that pane: `n3-5`, `n2,5-7`. Later items may repeat the label (`n2,n5`). Input with no label means the Target Pane, so `3`, `3-7` and `2,5-7` keep their meaning.
+- The selected rows are shown in reverse video in the pane they are in.
+- On commit, besides the checks above: a label that names no pane shows `invalid input`, even beside the Target Pane's lines as in `3,x1`; input that mixes panes, such as `3,n2` or `n2,b1`, shows `one pane at a time`; a Neighbour Pane that has not been read yet shows `pane <label> not read yet`, so you can wait and press Enter again; and a Neighbour Pane that could not be read shows `pane <label> unreadable`, which typing its label already shows. The overlay stays open in each case. `no line N` and `nothing to copy` are judged against the pane you named.
+- Copy, Joined Copy and Paste Copy work the same on a Neighbour Pane's rows. A Paste Copy always pastes into the Target Pane.
+- A Neighbour Pane with a Pane Label is drawn in full, like the Target Pane. Neighbour Panes without a Pane Label are only drawn faint and have no Line Numbers.
+- An empty Target Pane does not end Line Mode while a Neighbour Pane has rows to copy. A Neighbour Pane that could not be read is blank and noted in the status row, as in Hint Mode.
+- A commit key that is a bare letter (e.g. `line.copy = ["y"]`) always commits, so that letter cannot be typed as a Pane Label.
+
 ### Paste Copy
 
-A Paste Copy first copies the text, then sends it to the Target Pane as typed input:
+A Paste Copy first copies the text, then sends it to the Target Pane as typed input, whichever pane the text came from:
 
 - yubi never presses Enter, so a pasted command is never run.
 - herdr wraps the text in bracketed paste when the Target Pane has bracketed paste turned on, which most shells and editors do. A multi-line paste therefore stays a single paste.
@@ -152,12 +183,12 @@ herdr handles its prefix and keybindings before the overlay sees them, so your y
 
 ### Messages
 
-In these states nothing can be selected, and any key closes the overlay. Errors are shown in bold red; `no matches` and `nothing to copy` are not errors and are shown plain:
+In these states nothing can be selected, and any key closes the overlay. Errors are shown in bold red; `no matches` and `nothing to copy` are not errors and are shown plain. In a split tab these two wait until every Neighbour Pane with a Pane Label has been read or has failed, and are shown only when none has anything to offer:
 
 | Status row | Meaning |
 |---|---|
-| `no matches` | Hint Mode found no Match on the displayed rows. |
-| `nothing to copy` | The screen is empty or blank. |
+| `no matches` | Hint Mode found no Match on the displayed rows of any Visible Pane. |
+| `nothing to copy` | Every Visible Pane is empty, blank or could not be read. |
 | `cannot read target: <reason>` | The Target Pane could not be read, e.g. `pane_not_found`. |
 | `cannot read target: socket unreachable` | yubi could not reach herdr's socket. |
 | `cannot watch session: <reason>` | herdr refused yubi's event subscription. |
@@ -167,7 +198,7 @@ In these states nothing can be selected, and any key closes the overlay. Errors 
 
 ### When the overlay closes by itself
 
-yubi never copies from an out-of-date screen. It closes silently, with no message, when:
+yubi never copies from an out-of-date Target Pane. It closes silently, with no message, when:
 
 - the Target Pane closes, exits or moves;
 - the overlay pane moves;
@@ -176,6 +207,8 @@ yubi never copies from an out-of-date screen. It closes silently, with no messag
 - the tab is resized, e.g. when you resize the terminal window. When herdr resizes only the overlay (it drops the scrollbar column once yubi takes over the screen), yubi just redraws.
 
 A pending `copied; paste failed` message is the only exception (see [Paste Copy](#paste-copy)).
+
+A Neighbour Pane closing, exiting or moving does not close the overlay. Its text, as read when the overlay opened, can still be copied. In practice herdr itself un-zooms the tab when one of its panes closes or exits, and that closes the overlay as above. herdr also refuses to move a pane out of a zoomed tab.
 
 ## Configuration
 
@@ -322,11 +355,11 @@ To silence a noisy pattern, add it to `hint.disable`. To catch these cases more 
 
 ## Known limits
 
-- **Visible screen only.** yubi sees what is on the Target Pane's screen, not its scrollback.
+- **Visible screen only.** yubi sees what is on the Visible Panes' screens, not their scrollback.
 - **Soft-wrapped lines.** herdr does not say where a line was soft-wrapped, so yubi works per screen row. A long line wrapped over three rows gets three Line Numbers, and a Match wrapped onto the next row is two separate Matches (or none). Use a Joined Copy in Line Mode to copy a wrapped URL or command as one line.
 - **A Target Pane that fills its tab.** The overlay is a little smaller than the tab, because of herdr's frame around it. yubi draws the Target from the overlay's top-left corner and clips its rightmost columns and bottom rows. The status row covers the last row shown. Clipped rows get no Hints or Line Numbers. A Match cut off on the right still gets a Hint and is copied in full.
 - **Pane borders.** Split layouts are placed exactly only with herdr's default border settings. With `pane_outer_borders = false`, the Target Pane can be drawn one cell off.
-- **Other panes** are read once when the overlay opens, and drawn faint without Hints. A pane that cannot be read stays blank.
+- **Neighbour Panes** are read once when the overlay opens; output that arrives after that is not shown. A pane that cannot be read stays blank, and the status row notes it. A Line Mode selection is from one pane only.
 - **No mouse.** yubi is keyboard-only.
 - **No theming.** Styles are fixed and use only your terminal's 16-colour palette and SGR attributes.
 - **192 KiB limit.** OSC 52 copies are limited to 192 KiB, which is herdr's cap. A larger copy shows `copy failed: text is N KiB, over the OSC 52 limit of 192 KiB`.

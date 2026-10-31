@@ -2,18 +2,12 @@ package session
 
 import (
 	"context"
+	"strings"
 
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/screen"
 )
-
-// displayedRows returns how many of the Target Pane's rows yubi displays:
-// the rows of its grid that are above the status row, which is always the
-// overlay's bottom row.
-func displayedRows(p layout.Placement) int {
-	return max(min(p.Target.Height, p.H-1-p.Target.Y), 0)
-}
 
 // targetTab returns the session's tab layout with the Target Pane named
 // by the Config, or nil without one.
@@ -26,36 +20,91 @@ func targetTab(cfg Config) *layout.Tab {
 	return &t
 }
 
-// Neighbour hands the machine the screen of another pane in the tab, read
-// in the background. It is drawn dimmed at that pane's place; a pane that
-// is not one of the other panes is ignored.
+// Neighbour hands the machine the screen of a Neighbour Pane, read in the
+// background. It is drawn in that pane's grid: in Hint Mode a pane with a
+// Pane Label gets its Hints, built once from its own Matches and never
+// rebuilt, and is otherwise drawn dimmed. A pane that is not a Neighbour
+// Pane is ignored.
 func (m *Machine) Neighbour(pane string, scr screen.Screen) []Action {
-	for _, o := range m.place.Others {
-		if o.ID == pane {
-			if m.others == nil {
-				m.others = map[string]screen.Screen{}
-			}
-			m.others[pane] = scr
-			return []Action{Redraw{}}
+	p := m.neighbour(pane)
+	if p == nil {
+		return nil
+	}
+	p.arrive(scr)
+	if m.hint != nil && p.label != "" {
+		p.findHints(m.settings.Patterns, m.settings.Alphabet)
+	}
+	m.settle()
+	return []Action{Redraw{}}
+}
+
+// NeighbourUnreadable tells the machine that a Neighbour Pane could not be
+// read. The pane keeps its Pane Label and stays blank, and the status row
+// notes it; a pane that is not a Neighbour Pane is ignored.
+func (m *Machine) NeighbourUnreadable(pane string, err error) []Action {
+	p := m.neighbour(pane)
+	if p == nil {
+		return nil
+	}
+	p.fail(err)
+	if m.hint != nil {
+		// A label typed while the pane was being read leads nowhere.
+		m.noteUnreadable(m.hint.typed)
+	}
+	m.settle()
+	return []Action{Redraw{}}
+}
+
+// unreadableNote returns the status row's note on the Neighbour Panes
+// with a Pane Label that could not be read, in layout reading order, or
+// "" when there are none.
+func (m *Machine) unreadableNote() string {
+	var labels []string
+	for _, p := range readingOrder(m.panes[1:]) {
+		if p.read == paneUnreadable && p.label != "" {
+			labels = append(labels, p.label)
+		}
+	}
+	switch len(labels) {
+	case 0:
+		return ""
+	case 1:
+		return "pane " + labels[0] + " unreadable"
+	}
+	return "panes " + strings.Join(labels, ",") + " unreadable"
+}
+
+// neighbour returns the Neighbour Pane with id pane, or nil.
+func (m *Machine) neighbour(pane string) *visiblePane {
+	if m.panes == nil {
+		return nil
+	}
+	for _, p := range m.panes[1:] {
+		if p.id == pane {
+			return p
 		}
 	}
 	return nil
 }
 
-// drawOthers draws the pane frames as faint rules and the other panes read
-// so far dimmed, without labels. A pane not read (yet) stays blank.
-func (m *Machine) drawOthers(g *render.Grid) {
-	for _, f := range m.place.Frames {
-		g.Box(f.X, f.Y, f.Width, f.Height, render.Rule)
+// drawDimmed draws every row of p's grid dimmed, once p is read; a pane
+// not read stays blank.
+func drawDimmed(g *render.Grid, p *visiblePane) {
+	if p.read != paneRead {
+		return
 	}
-	for _, o := range m.place.Others {
-		scr, ok := m.others[o.ID]
-		if !ok {
-			continue
+	drawRows(g, p, min(p.grid.Height, len(p.scr.Rows)), true)
+}
+
+// drawRows draws the first n rows of p's grid: p's screen rows there and,
+// when dim, all n rows dimmed, blank ones included.
+func drawRows(g *render.Grid, p *visiblePane, n int, dim bool) {
+	r := p.grid
+	for y := 0; y < n; y++ {
+		if y < len(p.scr.Rows) {
+			drawRow(g, r.Y+y, r.X, r.Width, p.scr.Rows[y])
 		}
-		r := o.Rect
-		for y := 0; y < r.Height && y < len(scr.Rows); y++ {
-			drawRow(g, r.Y+y, r.X, r.Width, scr.Rows[y])
+		if dim {
 			g.Restyle(r.Y+y, r.X, r.Width, render.Dim)
 		}
 	}
@@ -79,23 +128,27 @@ func drawRow(g *render.Grid, y, x, width int, r screen.Row) {
 	g.DrawRow(y, x, clipped)
 }
 
-// neighbour is the result of reading another pane.
-type neighbour struct {
+// neighbourRead is the result of reading a Neighbour Pane: its screen, or
+// why it could not be read.
+type neighbourRead struct {
 	pane string
 	scr  screen.Screen
+	err  error
 }
 
-// readOthers reads every other pane once, in the background, and delivers
-// the screens that could be read. A failed read is dropped silently. The
-// reads end when ctx is done; nothing waits for them.
-func readOthers(ctx context.Context, src PaneSource, others []layout.Pane) <-chan neighbour {
-	out := make(chan neighbour, len(others)) // never blocks a reader
-	for _, o := range others {
+// readNeighbours reads every Neighbour Pane once, in the background, and
+// delivers each result, a failed read included. The reads end when ctx is
+// done; nothing waits for them.
+func readNeighbours(ctx context.Context, src PaneSource, neighbours []layout.Pane) <-chan neighbourRead {
+	out := make(chan neighbourRead, len(neighbours)) // never blocks a reader
+	for _, n := range neighbours {
 		go func() {
-			ansi, err := src.ReadVisible(ctx, o.ID, FormatANSI)
-			if err == nil {
-				out <- neighbour{o.ID, screen.ParseANSI(ansi)}
+			ansi, err := src.ReadVisible(ctx, n.ID, FormatANSI)
+			if err != nil {
+				out <- neighbourRead{pane: n.ID, err: err}
+				return
 			}
+			out <- neighbourRead{pane: n.ID, scr: screen.ParseANSI(ansi)}
 		}()
 	}
 	return out

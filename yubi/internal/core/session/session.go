@@ -99,7 +99,7 @@ type Config struct {
 	SettingsErr error
 
 	// Layout is the tab layout captured before the overlay opened; nil
-	// draws the Target Pane from the overlay's corner and no other panes.
+	// draws the Target Pane from the overlay's corner and no Neighbour Panes.
 	Layout *layout.Tab
 }
 
@@ -138,9 +138,9 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 	if m == nil {
 		m = start(ctx, cfg, d.Source, w, h)
 	}
-	var others <-chan neighbour
+	var neighbours <-chan neighbourRead
 	if m.message == "" {
-		others = readOthers(ctx, d.Source, m.place.Others)
+		neighbours = readNeighbours(ctx, d.Source, m.place.Others)
 	}
 	if err := d.Terminal.Draw(m.Frame()); err != nil {
 		return err
@@ -227,8 +227,12 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 			if !ok || apply(m.Event(ev)) {
 				return nil
 			}
-		case n := <-others:
-			apply(m.Neighbour(n.pane, n.scr))
+		case n := <-neighbours:
+			if n.err != nil {
+				apply(m.NeighbourUnreadable(n.pane, n.err))
+			} else {
+				apply(m.Neighbour(n.pane, n.scr))
+			}
 		case <-d.Terminal.Resized():
 			w, h, err := d.Terminal.Size()
 			if err != nil {

@@ -42,6 +42,61 @@ func Preview(input string) []Range {
 	return out
 }
 
+// ErrMixed is returned for input whose items name more than one pane.
+var ErrMixed = errors.New("one pane at a time")
+
+// ParsePane parses Line Mode input that may name a pane: Parse's grammar,
+// with an optional Pane Label (one lowercase letter) at the start of the
+// input. It returns the label, "" for none, and the ranges. A label that
+// known rejects names no pane, so the input is ErrMalformed. A later item
+// may repeat the same label, but an item that names another pane is
+// ErrMixed: `3,s2` mixes the unlabelled pane with pane s.
+func ParsePane(input string, known func(label string) bool) (string, []Range, error) {
+	items := strings.Split(input, ",")
+	labels := make([]string, len(items))
+	for i, item := range items {
+		labels[i], items[i] = cutLabel(item)
+	}
+	ranges, err := Parse(strings.Join(items, ","))
+	if err != nil {
+		return "", nil, err
+	}
+	for _, l := range labels {
+		if l != "" && !known(l) {
+			return "", nil, ErrMalformed
+		}
+	}
+	for _, l := range labels[1:] {
+		if l != "" && l != labels[0] {
+			return "", nil, ErrMixed
+		}
+	}
+	return labels[0], ranges, nil
+}
+
+// PreviewPane returns the pane and the selection typed so far, for the
+// live preview: the Pane Label at the start of input, "" for none, and
+// Preview's ranges of the items that name no other pane.
+func PreviewPane(input string) (string, []Range) {
+	items := strings.Split(input, ",")
+	label, _ := cutLabel(items[0])
+	var kept []string
+	for _, item := range items {
+		if l, rest := cutLabel(item); l == "" || l == label {
+			kept = append(kept, rest)
+		}
+	}
+	return label, Preview(strings.Join(kept, ","))
+}
+
+// cutLabel splits a leading Pane Label off item.
+func cutLabel(item string) (label, rest string) {
+	if item != "" && item[0] >= 'a' && item[0] <= 'z' {
+		return item[:1], item[1:]
+	}
+	return "", item
+}
+
 func parseItem(item string) (Range, bool) {
 	a, b, isRange := strings.Cut(item, "-")
 	from, ok := parseNumber(a)
