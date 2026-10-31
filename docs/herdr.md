@@ -1,6 +1,6 @@
 # herdr behaviour notes for plugin authors
 
-What herdr 0.9.5 (socket protocol 22) does that its schema and docs leave out, each seen on a live server. Request and response shapes come from `herdr api schema --json`; the plugin guide is in herdr's docs (`https://herdr.dev/llms.txt`). When `min_herdr_version` is raised, re-check what a plugin relies on here; yubi's `scripts/e2e.sh` and its socket captures (`yubi/testdata/README.md`) do most of it.
+What herdr 0.9.5 (socket protocol 22) does that its schema and docs leave out, each seen on a live server. Request and response shapes come from `herdr api schema --json`; the plugin guide is in herdr's docs (`https://herdr.dev/llms.txt`). When `min_herdr_version` is raised, re-check what a plugin relies on here; yubi's `scripts/e2e.sh` and its socket captures (`yubi/testdata/README.md`) do most of it. When a spec relies on how herdr reacts to an event or a layout change and this file does not cover it, check it on a throwaway server before writing the spec, and record what you see here.
 
 ## Running a throwaway server
 
