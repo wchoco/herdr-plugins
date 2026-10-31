@@ -14,6 +14,17 @@ if [ -n "$unformatted" ]; then
 	echo "$unformatted"
 	exit 1
 fi
+# A translation must keep its English original's shape: the same number of
+# headings and checklist items.
+for ja in $(git ls-files '*.ja.md'); do
+	en=${ja%.ja.md}.md
+	for pattern in '^#' '^ *- \[ \]'; do
+		if [ "$(grep -c "$pattern" "$en")" != "$(grep -c "$pattern" "$ja")" ]; then
+			echo "$ja and $en differ in lines matching '$pattern'"
+			exit 1
+		fi
+	done
+done
 go vet ./...
 go test ./...
 for manifest in */herdr-plugin.toml; do

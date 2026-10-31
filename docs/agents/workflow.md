@@ -22,7 +22,7 @@ Do not mark such a PR ready without a scan. Scan reports are written to `CLAUDE-
 
 ## Checks
 
-`scripts/check.sh` runs every check: `gofmt`, `go vet`, `go test`, `go build` of each plugin, `govulncheck`, and each plugin's `scripts/e2e.sh` when `herdr` and `tmux` are installed. CI runs the same script (without herdr, so it skips the e2e). Run it before every push; `git config core.hooksPath .githooks` makes `git push` run it. CI complements, but does not replace, the claude-security scan.
+`scripts/check.sh` runs every check: `gofmt`, a shape match of each `*.ja.md` against its English original (heading and checklist-item counts), `go vet`, `go test`, `go build` of each plugin, `govulncheck`, and each plugin's `scripts/e2e.sh` when `herdr` and `tmux` are installed. CI runs the same script (without herdr, so it skips the e2e). Run it before every push; `git config core.hooksPath .githooks` makes `git push` run it. CI complements, but does not replace, the claude-security scan.
 
 ## Live herdr
 
