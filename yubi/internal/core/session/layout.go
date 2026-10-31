@@ -30,9 +30,9 @@ func (m *Machine) Neighbour(pane string, scr screen.Screen) []Action {
 	if p == nil {
 		return nil
 	}
-	p.arrive(scr, m.place.H)
+	p.arrive(scr)
 	if m.hint != nil && p.label != "" {
-		p.findHints(m.place.H, m.settings.Patterns, m.settings.Alphabet)
+		p.findHints(m.settings.Patterns, m.settings.Alphabet)
 	}
 	m.settle()
 	return []Action{Redraw{}}
@@ -47,9 +47,9 @@ func (m *Machine) NeighbourUnreadable(pane string, err error) []Action {
 		return nil
 	}
 	p.fail(err)
-	if m.hint != nil && p.label != "" && m.hint.typed == p.label {
-		// The label typed while the pane was being read leads nowhere.
-		m.hint.err = unreadable(p.label).Error()
+	if m.hint != nil {
+		// A label typed while the pane was being read leads nowhere.
+		m.noteUnreadable(m.hint.typed)
 	}
 	m.settle()
 	return []Action{Redraw{}}
@@ -93,10 +93,20 @@ func drawDimmed(g *render.Grid, p *visiblePane) {
 	if p.read != paneRead {
 		return
 	}
+	drawRows(g, p, min(p.grid.Height, len(p.scr.Rows)), true)
+}
+
+// drawRows draws the first n rows of p's grid: p's screen rows there and,
+// when dim, all n rows dimmed, blank ones included.
+func drawRows(g *render.Grid, p *visiblePane, n int, dim bool) {
 	r := p.grid
-	for y := 0; y < r.Height && y < len(p.scr.Rows); y++ {
-		drawRow(g, r.Y+y, r.X, r.Width, p.scr.Rows[y])
-		g.Restyle(r.Y+y, r.X, r.Width, render.Dim)
+	for y := 0; y < n; y++ {
+		if y < len(p.scr.Rows) {
+			drawRow(g, r.Y+y, r.X, r.Width, p.scr.Rows[y])
+		}
+		if dim {
+			g.Restyle(r.Y+y, r.X, r.Width, render.Dim)
+		}
 	}
 }
 
@@ -126,19 +136,19 @@ type neighbourRead struct {
 	err  error
 }
 
-// readOthers reads every Neighbour Pane once, in the background, and
+// readNeighbours reads every Neighbour Pane once, in the background, and
 // delivers each result, a failed read included. The reads end when ctx is
 // done; nothing waits for them.
-func readOthers(ctx context.Context, src PaneSource, others []layout.Pane) <-chan neighbourRead {
-	out := make(chan neighbourRead, len(others)) // never blocks a reader
-	for _, o := range others {
+func readNeighbours(ctx context.Context, src PaneSource, neighbours []layout.Pane) <-chan neighbourRead {
+	out := make(chan neighbourRead, len(neighbours)) // never blocks a reader
+	for _, n := range neighbours {
 		go func() {
-			ansi, err := src.ReadVisible(ctx, o.ID, FormatANSI)
+			ansi, err := src.ReadVisible(ctx, n.ID, FormatANSI)
 			if err != nil {
-				out <- neighbourRead{pane: o.ID, err: err}
+				out <- neighbourRead{pane: n.ID, err: err}
 				return
 			}
-			out <- neighbourRead{pane: o.ID, scr: screen.ParseANSI(ansi)}
+			out <- neighbourRead{pane: n.ID, scr: screen.ParseANSI(ansi)}
 		}()
 	}
 	return out

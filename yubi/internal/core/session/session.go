@@ -138,9 +138,9 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 	if m == nil {
 		m = start(ctx, cfg, d.Source, w, h)
 	}
-	var others <-chan neighbourRead
+	var neighbours <-chan neighbourRead
 	if m.message == "" {
-		others = readOthers(ctx, d.Source, m.place.Others)
+		neighbours = readNeighbours(ctx, d.Source, m.place.Others)
 	}
 	if err := d.Terminal.Draw(m.Frame()); err != nil {
 		return err
@@ -227,7 +227,7 @@ func Run(ctx context.Context, cfg Config, d Deps) error {
 			if !ok || apply(m.Event(ev)) {
 				return nil
 			}
-		case n := <-others:
+		case n := <-neighbours:
 			if n.err != nil {
 				apply(m.NeighbourUnreadable(n.pane, n.err))
 			} else {

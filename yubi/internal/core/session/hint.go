@@ -15,10 +15,8 @@ import (
 // Label, so typing filters across every pane by prefix, and a typed Pane
 // Label of a pane not read yet stays typed.
 type hintState struct {
-	panes []*visiblePane // the Machine's Visible Panes
-	typed string         // Hint characters typed so far
-	paste bool           // the first character was uppercase: Paste Copy
-	err   string         // why the last key typed did nothing, until the next key
+	typed string // Hint characters typed so far
+	paste bool   // the first character was uppercase: Paste Copy
 }
 
 // NewHint starts Hint Mode on scr in a w x h overlay. Only the rows above
@@ -38,16 +36,18 @@ func NewHintAt(scr screen.Screen, p layout.Placement) *Machine {
 func newHint(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
 	m := &Machine{settings: settings, place: p, panes: visiblePanes(p, settings.Alphabet)}
 	t := m.target()
-	t.arrive(scr, p.H)
-	t.findHints(p.H, settings.Patterns, targetAlphabet(settings.Alphabet, m.panes))
-	m.hint = &hintState{panes: m.panes}
+	t.arrive(scr)
+	t.findHints(settings.Patterns, targetAlphabet(settings.Alphabet, m.panes))
+	m.hint = &hintState{}
 	m.settle()
 	return m
 }
 
-func (s *hintState) key(k keys.Key) []Action {
+// hintKey handles one key press in Hint Mode.
+func (m *Machine) hintKey(k keys.Key) []Action {
+	s := m.hint
 	k = keys.Canon(k)
-	s.err = ""
+	m.err = ""
 	upper := k.Mod == 0 && k.Code >= 'A' && k.Code <= 'Z'
 	if upper {
 		// Hints are lowercase; only the first character's case counts.
@@ -68,15 +68,14 @@ func (s *hintState) key(k keys.Key) []Action {
 	case k.Mod == 0 && k.Code > ' ':
 		next := s.typed + string(k.Code)
 		paste := s.paste || s.typed == "" && upper
+		if m.noteUnreadable(next) {
+			return []Action{Redraw{}}
+		}
 		continues := false
-		for _, p := range s.panes {
+		for _, p := range m.panes {
 			if p.label == next && p.read == paneUnread {
 				// The pane's Hints show up, filtered, when it arrives.
 				continues = true
-			}
-			if p.label == next && p.read == paneUnreadable {
-				s.err = unreadable(p.label).Error()
-				return []Action{Redraw{}}
 			}
 			for text, h := range p.hints {
 				if h == next {
@@ -99,20 +98,15 @@ func (s *hintState) key(k keys.Key) []Action {
 	return nil
 }
 
-// draw draws the displayed rows of p faint in its grid,
+// drawHints draws the displayed rows of p faint in its grid,
 // Matches underlined where visible, and the Hints that still fit the typed
 // prefix over the first cells of their Matches. A Hint that does not fit
 // before the grid's right edge, because its Match starts too far right or
 // off-screen, is right-aligned to the edge instead; several on one row go
 // leftward from the edge in Match order.
-func (s *hintState) draw(g *render.Grid, p *visiblePane, h int) {
-	t, scr, displayed := p.grid, p.scr, p.displayed(h)
-	for y := 0; y < displayed; y++ {
-		if y < len(scr.Rows) {
-			drawRow(g, t.Y+y, t.X, t.Width, scr.Rows[y])
-		}
-		g.Restyle(t.Y+y, t.X, t.Width, render.Dim)
-	}
+func (m *Machine) drawHints(g *render.Grid, p *visiblePane) {
+	typed, t := m.hint.typed, p.grid
+	drawRows(g, p, p.displayed(), true)
 	for _, m := range p.matches {
 		if m.Col < t.Width {
 			g.Restyle(t.Y+m.Row, t.X+m.Col, min(m.Width, t.Width-m.Col), render.Match)
@@ -133,11 +127,11 @@ func (s *hintState) draw(g *render.Grid, p *visiblePane, h int) {
 			x = end - len(h)
 			edge[m.Row] = x
 		}
-		if x < 0 || !strings.HasPrefix(h, s.typed) {
+		if x < 0 || !strings.HasPrefix(h, typed) {
 			continue
 		}
-		g.Label(t.Y+m.Row, t.X+x, s.typed, render.HintTyped)
-		g.Label(t.Y+m.Row, t.X+x+len(s.typed), h[len(s.typed):], render.Hint)
+		g.Label(t.Y+m.Row, t.X+x, typed, render.HintTyped)
+		g.Label(t.Y+m.Row, t.X+x+len(typed), h[len(typed):], render.Hint)
 	}
 }
 

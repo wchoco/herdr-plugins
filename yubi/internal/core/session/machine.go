@@ -41,7 +41,7 @@ type Machine struct {
 	cfg      Config        // the session's ids, for telling stale events apart
 	settings config.Config // from config.toml, or the defaults
 	input    string        // Line Mode input typed so far
-	err      string        // input error shown next to the input until the next key
+	err      string        // input error, either mode, shown after the input until the next key
 	message  string        // when set, a message-only state: nothing is selectable
 	info     bool          // message is information, not an error: drawn plain
 
@@ -70,7 +70,7 @@ func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
 
 func newLine(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
 	m := &Machine{settings: settings, place: p, panes: visiblePanes(p, settings.Alphabet)}
-	m.target().arrive(scr, p.H)
+	m.target().arrive(scr)
 	m.settle()
 	return m
 }
@@ -180,6 +180,9 @@ func (m *Machine) Resize(w, h int, tabResized bool) []Action {
 		return []Action{Exit{}}
 	}
 	m.place.W, m.place.H = w, h
+	for _, p := range m.panes {
+		p.overlayH = h
+	}
 	return []Action{Redraw{}}
 }
 
@@ -189,7 +192,7 @@ func (m *Machine) Key(k keys.Key) []Action {
 		return []Action{Exit{}}
 	}
 	if m.hint != nil {
-		return m.hint.key(k)
+		return m.hintKey(k)
 	}
 	switch {
 	case k == keys.Key{Code: keys.Escape}, k == keys.Key{Code: 'c', Mod: keys.Ctrl}:
@@ -210,9 +213,7 @@ func (m *Machine) Key(k keys.Key) []Action {
 	case k.Mod == 0 && k.Code >= 'a' && k.Code <= 'z' && m.labelAllowed():
 		// A Pane Label, unless it is a commit key (checked above).
 		actions := m.edit(m.input + string(k.Code))
-		if p := m.paneByLabel(string(k.Code)); p != nil && p.read == paneUnreadable {
-			m.err = unreadable(p.label).Error()
-		}
+		m.noteUnreadable(string(k.Code))
 		return actions
 	case k.Mod&keys.Alt != 0:
 		// Alt on any commit key adds the paste.
@@ -312,6 +313,20 @@ func (m *Machine) selection() (*visiblePane, []int, error) {
 // read.
 func unreadable(label string) error { return errors.New("pane " + label + " unreadable") }
 
+// noteUnreadable reports whether typed, as typed so far, is the Pane Label
+// of a Neighbour Pane that could not be read, and if so shows that as the
+// input error.
+func (m *Machine) noteUnreadable(typed string) bool {
+	if typed == "" {
+		return false
+	}
+	if p := m.paneByLabel(typed); p == nil || p.read != paneUnreadable {
+		return false
+	}
+	m.err = unreadable(typed).Error()
+	return true
+}
+
 // paneByLabel returns the Visible Pane with Pane Label label, the Target
 // Pane for "", or nil when no pane has it.
 func (m *Machine) paneByLabel(label string) *visiblePane {
@@ -336,13 +351,13 @@ func (m *Machine) drawPanes(g *render.Grid) {
 		case p.label == "" || p.read != paneRead:
 			drawDimmed(g, p)
 		case m.hint != nil:
-			m.hint.draw(g, p, m.place.H)
+			m.drawHints(g, p)
 		default:
 			m.drawLines(g, p)
 		}
 	}
 	if m.hint != nil {
-		m.hint.draw(g, m.target(), m.place.H)
+		m.drawHints(g, m.target())
 	} else {
 		m.drawLines(g, m.target())
 	}
@@ -354,10 +369,8 @@ func (m *Machine) drawPanes(g *render.Grid) {
 func (m *Machine) drawLines(g *render.Grid, p *visiblePane) {
 	t := p.grid
 	labelWidth := len(p.label) + len(strconv.Itoa(p.num.Max()))
-	shown := min(p.displayed(m.place.H), len(p.scr.Rows))
-	for y := 0; y < shown; y++ {
-		drawRow(g, t.Y+y, t.X, t.Width, p.scr.Rows[y])
-	}
+	shown := len(p.displayedRows())
+	drawRows(g, p, shown, false)
 	if label, ranges := line.PreviewPane(m.input); label == p.label {
 		for _, y := range p.num.Rows(ranges) {
 			g.Select(t.Y+y, t.X, t.Width)
@@ -381,50 +394,37 @@ func (m *Machine) Frame() *render.Grid {
 		m.drawPanes(g)
 	}
 	g.Fill(status, 0, g.W, render.Status)
-	text, errText := m.statusText()
-	if m.message != "" && !m.info {
-		g.Label(status, 0, text, render.Error)
-	} else {
-		g.Label(status, 0, text, render.Status)
-	}
-	end := len(text) // where the left-hand text ends
-	if errText != "" {
-		// The status text is ASCII in Line Mode, so its width is its length.
-		g.Label(status, len(text)+2, errText, render.Error)
-		end = len(text) + 2 + len(errText)
-	}
-	if m.message == "" && m.hint != nil {
-		// Hint Mode's status text is ASCII too.
-		x := len(text) + 2
-		if m.hint.paste {
-			g.Label(status, x, "paste", render.Paste)
-			end = x + len("paste")
-			x = end + 2
+	if m.message != "" {
+		role := render.Status
+		if !m.info {
+			role = render.Error
 		}
-		if m.hint.err != "" {
-			g.Label(status, x, m.hint.err, render.Error)
-			end = x + len(m.hint.err)
-		}
+		g.Label(status, 0, m.message, role)
+		return g
 	}
-	if m.message == "" {
-		// Right-aligned, and only where it leaves the text on the left
-		// whole, with a gap.
-		if note := m.unreadableNote(); note != "" && end+2+len(note) <= g.W {
-			g.Label(status, g.W-len(note), note, render.Error)
-		}
+	// The status row's text is ASCII, so its width is its length.
+	text := "LINE  " + m.input
+	if m.hint != nil {
+		text = m.hint.status()
+	}
+	g.Label(status, 0, text, render.Status)
+	end := len(text) // where the text on the left ends
+	after := func(s string, role render.Role) {
+		g.Label(status, end+2, s, role)
+		end += 2 + len(s)
+	}
+	if m.hint != nil && m.hint.paste {
+		after("paste", render.Paste)
+	}
+	if m.err != "" {
+		after(m.err, render.Error)
+	}
+	// Right-aligned, and only where it leaves the text on the left whole,
+	// with a gap.
+	if note := m.unreadableNote(); note != "" && end+2+len(note) <= g.W {
+		g.Label(status, g.W-len(note), note, render.Error)
 	}
 	return g
-}
-
-// statusText returns the status row's text and the error shown after it.
-func (m *Machine) statusText() (text, errText string) {
-	if m.message != "" {
-		return m.message, ""
-	}
-	if m.hint != nil {
-		return m.hint.status(), ""
-	}
-	return "LINE  " + m.input, m.err
 }
 
 func padLeft(s string, w int) string {

@@ -24,11 +24,12 @@ const (
 // included: where its grid is placed, its screen once read, its Line
 // Numbers, and in Hint Mode its Matches and Hints.
 type visiblePane struct {
-	id    string
-	grid  layout.Rect // in overlay cells, clipped to the overlay
-	label string      // a Neighbour Pane's Pane Label; "" for the Target Pane and unlabelled panes
-	read  readState
-	err   error // why the read failed, when paneUnreadable
+	id       string
+	grid     layout.Rect // in overlay cells, clipped to the overlay
+	overlayH int         // the overlay's height; its bottom row is the status row
+	label    string      // a Neighbour Pane's Pane Label; "" for the Target Pane and unlabelled panes
+	read     readState
+	err      error // why the read failed, when paneUnreadable
 
 	scr     screen.Screen
 	num     line.Numbering    // over the displayed rows
@@ -44,9 +45,9 @@ const minTargetLetters = 2
 // unread, with their Pane Labels from alphabet. The Neighbour Panes stay
 // in p.Others order (tab order, not reading order).
 func visiblePanes(p layout.Placement, alphabet string) []*visiblePane {
-	ps := []*visiblePane{{grid: p.Target}}
+	ps := []*visiblePane{{grid: p.Target, overlayH: p.H}}
 	for _, o := range p.Others {
-		ps = append(ps, &visiblePane{id: o.ID, grid: o.Rect})
+		ps = append(ps, &visiblePane{id: o.ID, grid: o.Rect, overlayH: p.H})
 	}
 	labelPanes(ps[1:], alphabet)
 	return ps
@@ -87,22 +88,22 @@ func targetAlphabet(alphabet string, panes []*visiblePane) string {
 	return alphabet
 }
 
-// displayed returns how many of the pane's rows yubi displays in an
-// overlay h rows high: the rows of its grid above the status row, which is
-// always the overlay's bottom row.
-func (p *visiblePane) displayed(h int) int {
-	return max(min(p.grid.Height, h-1-p.grid.Y), 0)
+// displayed returns how many of the pane's rows yubi displays: the rows
+// of its grid above the status row, which is always the overlay's bottom
+// row.
+func (p *visiblePane) displayed() int {
+	return max(min(p.grid.Height, p.overlayH-1-p.grid.Y), 0)
 }
 
 // displayedRows returns the screen rows yubi displays of the pane.
-func (p *visiblePane) displayedRows(h int) []screen.Row {
-	return p.scr.Rows[:max(min(p.displayed(h), len(p.scr.Rows)), 0)]
+func (p *visiblePane) displayedRows() []screen.Row {
+	return p.scr.Rows[:min(p.displayed(), len(p.scr.Rows))]
 }
 
 // arrive stores the pane's screen and numbers its displayed rows.
-func (p *visiblePane) arrive(scr screen.Screen, h int) {
+func (p *visiblePane) arrive(scr screen.Screen) {
 	p.read, p.scr = paneRead, scr
-	p.num = line.NewNumbering(scr, p.displayed(h))
+	p.num = line.NewNumbering(scr, p.displayed())
 }
 
 // fail records that the pane could not be read.
@@ -112,8 +113,8 @@ func (p *visiblePane) fail(err error) {
 
 // findHints finds the Matches on the pane's displayed rows and assigns
 // them Hints from alphabet, each after the pane's Pane Label.
-func (p *visiblePane) findHints(h int, patterns []hint.Pattern, alphabet string) {
-	p.matches = hint.Find(p.displayedRows(h), patterns)
+func (p *visiblePane) findHints(patterns []hint.Pattern, alphabet string) {
+	p.matches = hint.Find(p.displayedRows(), patterns)
 	p.hints = hint.Assign(p.matches, alphabet)
 	for text, hn := range p.hints {
 		p.hints[text] = p.label + hn
