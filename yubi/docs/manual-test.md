@@ -110,6 +110,9 @@ Split the tab three ways as in **Split** above: a left pane, a top right pane an
 - [ ] `prefix+y`, select `first line` and `second line` in the left pane (e.g. `n4-3`), **Alt-Ctrl-J**: `first line   second line` is pasted as one line on the Target Pane's prompt (the bottom right pane), not run, and not in the left pane.
 - [ ] `prefix+f`, then `prefix+y`: the labels are the same in both modes (`n` on the left pane, `b` top right).
 - [ ] **Short alphabet**: put `hint.alphabet = "asd"` in yubi's `config.toml`. `prefix+f`: the left pane gets the label `d`, the top right pane gets no Hints and is only drawn faint, and the Target Pane's Hints use only `a` and `s`. Remove the `config.toml` again.
+- [ ] **Empty Target**: run `clear` in the Target Pane (bottom right). `prefix+f`: Hint Mode opens (no `nothing to copy`) with Hints in the other panes; type an `n` Hint: the clipboard holds that Match from the left pane. `prefix+y`: Line Mode opens; type `n1`, Enter: the clipboard holds the left pane's bottom line.
+- [ ] **Nothing anywhere**: run `clear` in all three panes, then focus the bottom right pane. `prefix+f`: `nothing to copy`, shown plain. Print a few plain words in the left pane: `prefix+f` shows `no matches`. Any key closes each.
+- An unreadable Neighbour Pane (blank, `pane <label> unreadable` in the status row) cannot be produced on purpose in a real herdr: its read fails only when the pane goes away between the layout read and its own read. It is covered by the automated tests and the render golden `hint-split3-unreadable`.
 
 ## Re-launch and mode switch
 
@@ -125,6 +128,7 @@ Split the tab three ways as in **Split** above: a left pane, a top right pane an
 - [ ] **No false resize**: open the overlay and wait a few seconds, then press the same binding again: the overlay closes (it did not close by itself, and no `cannot read target` message appears).
 - [ ] **Focus leaves**: open the overlay and use herdr's key to switch to another tab: the overlay is gone when you come back.
 - [ ] **Un-zoom**: in a split tab, open the overlay and use herdr's zoom toggle key: the overlay closes by itself.
+- [ ] **Neighbour closed**: in the three-pane layout of [Neighbour Panes](#neighbour-panes), in the top right pane run `sleep 5; exit`, then focus the left pane and press `prefix+f` within 5 seconds. When the shell exits, the overlay closes by itself. This is herdr un-zooming the tab when one of its panes closes or exits, not yubi: yubi keeps the overlay open for a Neighbour Pane closing, exiting or moving (covered by the automated tests), but herdr gives it no layout in which that can happen. herdr refuses to move a pane out of a zoomed tab, so a Neighbour Pane cannot move while the overlay is open.
 
 ## Messages and config errors
 

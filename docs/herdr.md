@@ -36,6 +36,7 @@ What herdr 0.9.5 (socket protocol 22) does that its schema and docs leave out, e
 - While a tab is zoomed, `pane.layout` says `zoomed:true` but keeps the split rects; the zoomed pane is drawn framed over the whole tab.
 - An overlay opens one column narrower than it ends up: herdr drops the scrollbar gutter after the pane enters the alternate screen, at its next layout pass (a plugin action triggers one). The pane gets a SIGWINCH with no change to the tab's `pane.layout` `area`. An outer terminal resize sends no event, but does change `area`.
 - herdr refuses to move a pane out of a zoomed tab (`pane.move` → `changed:false, reason:"zoomed_tab"`).
+- Closing any pane of a zoomed tab, or its process exiting, un-zooms the tab, even when the zoomed pane's rect does not change (herdr 0.9.5).
 
 ## Events
 

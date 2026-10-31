@@ -71,10 +71,38 @@ func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
 func newLine(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
 	m := &Machine{settings: settings, place: p, panes: visiblePanes(p, settings.Alphabet)}
 	m.target().arrive(scr, p.H)
-	if m.target().num.Max() == 0 {
-		m.inform("nothing to copy")
-	}
+	m.settle()
 	return m
+}
+
+// settle shows why nothing can be copied once every Visible Pane with
+// something to offer has been read or has failed and none has anything:
+// `nothing to copy` when they are all blank or unreadable, and in Hint
+// Mode `no matches` when some have text but none has a Match. While a
+// Neighbour Pane with a Pane Label is still being read it waits.
+func (m *Machine) settle() {
+	if m.message != "" {
+		return
+	}
+	text, matches := false, false
+	for i, p := range m.panes {
+		if i > 0 && p.label == "" {
+			continue // never copyable
+		}
+		switch p.read {
+		case paneUnread:
+			return
+		case paneRead:
+			text = text || p.num.Max() > 0
+			matches = matches || len(p.hints) > 0
+		}
+	}
+	switch {
+	case !text:
+		m.inform("nothing to copy")
+	case m.hint != nil && !matches:
+		m.inform("no matches")
+	}
 }
 
 // newMessage starts a message-only state showing the error msg.
@@ -181,7 +209,11 @@ func (m *Machine) Key(k keys.Key) []Action {
 		return m.commit(true, false)
 	case k.Mod == 0 && k.Code >= 'a' && k.Code <= 'z' && m.labelAllowed():
 		// A Pane Label, unless it is a commit key (checked above).
-		return m.edit(m.input + string(k.Code))
+		actions := m.edit(m.input + string(k.Code))
+		if p := m.paneByLabel(string(k.Code)); p != nil && p.read == paneUnreadable {
+			m.err = unreadable(p.label).Error()
+		}
+		return actions
 	case k.Mod&keys.Alt != 0:
 		// Alt on any commit key adds the paste.
 		k.Mod &^= keys.Alt
@@ -269,12 +301,19 @@ func (m *Machine) selection() (*visiblePane, []int, error) {
 	if p == nil {
 		return nil, nil, line.ErrMalformed
 	}
-	if p.read == paneUnread {
+	switch p.read {
+	case paneUnread:
 		return nil, nil, errors.New("pane " + label + " not read yet")
+	case paneUnreadable:
+		return nil, nil, unreadable(label)
 	}
 	rows, err := p.num.Select(ranges)
 	return p, rows, err
 }
+
+// unreadable is the error for a Pane Label naming a pane that could not be
+// read.
+func unreadable(label string) error { return errors.New("pane " + label + " unreadable") }
 
 // paneByLabel returns the Visible Pane with Pane Label label, the Target
 // Pane for "", or nil when no pane has it.
@@ -355,9 +394,22 @@ func (m *Machine) Frame() *render.Grid {
 		// The status text is ASCII in Line Mode, so its width is its length.
 		g.Label(status, len(text)+2, errText, render.Error)
 	}
-	if m.message == "" && m.hint != nil && m.hint.paste {
+	if m.message == "" && m.hint != nil {
 		// Hint Mode's status text is ASCII too.
-		g.Label(status, len(text)+2, "paste", render.Paste)
+		x := len(text) + 2
+		if m.hint.paste {
+			g.Label(status, x, "paste", render.Paste)
+			x += len("paste") + 2
+		}
+		if m.hint.err != "" {
+			g.Label(status, x, m.hint.err, render.Error)
+		}
+	}
+	if m.message == "" {
+		if note := m.unreadableNote(); note != "" {
+			// Right-aligned, clear of the input and any error after it.
+			g.Label(status, max(g.W-len(note), 0), note, render.Error)
+		}
 	}
 	return g
 }

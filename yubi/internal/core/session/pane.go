@@ -58,15 +58,22 @@ func visiblePanes(p layout.Placement, alphabet string) []*visiblePane {
 // minTargetLetters letters, so the panes past the last label that fits
 // get none.
 func labelPanes(ns []*visiblePane, alphabet string) {
-	order := slices.Clone(ns)
-	slices.SortStableFunc(order, func(a, b *visiblePane) int {
-		return cmp.Or(cmp.Compare(a.grid.Y, b.grid.Y), cmp.Compare(a.grid.X, b.grid.X))
-	})
+	order := readingOrder(ns)
 	// The alphabet is validated to be distinct lowercase ASCII letters.
 	n := min(len(order), max(len(alphabet)-minTargetLetters, 0))
 	for i, p := range order[:n] {
 		p.label = alphabet[len(alphabet)-1-i : len(alphabet)-i]
 	}
+}
+
+// readingOrder returns a copy of ps in layout reading order: top to
+// bottom, then left to right.
+func readingOrder(ps []*visiblePane) []*visiblePane {
+	order := slices.Clone(ps)
+	slices.SortStableFunc(order, func(a, b *visiblePane) int {
+		return cmp.Or(cmp.Compare(a.grid.Y, b.grid.Y), cmp.Compare(a.grid.X, b.grid.X))
+	})
+	return order
 }
 
 // targetAlphabet returns the Target Pane's Hint alphabet: alphabet without

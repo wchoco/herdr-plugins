@@ -18,6 +18,7 @@ type hintState struct {
 	panes []*visiblePane // the Machine's Visible Panes
 	typed string         // Hint characters typed so far
 	paste bool           // the first character was uppercase: Paste Copy
+	err   string         // why the last key typed did nothing, until the next key
 }
 
 // NewHint starts Hint Mode on scr in a w x h overlay. Only the rows above
@@ -38,21 +39,15 @@ func newHint(scr screen.Screen, p layout.Placement, settings config.Config) *Mac
 	m := &Machine{settings: settings, place: p, panes: visiblePanes(p, settings.Alphabet)}
 	t := m.target()
 	t.arrive(scr, p.H)
-	if t.num.Max() == 0 {
-		m.inform("nothing to copy")
-		return m
-	}
 	t.findHints(p.H, settings.Patterns, targetAlphabet(settings.Alphabet, m.panes))
-	if len(t.matches) == 0 {
-		m.inform("no matches")
-		return m
-	}
 	m.hint = &hintState{panes: m.panes}
+	m.settle()
 	return m
 }
 
 func (s *hintState) key(k keys.Key) []Action {
 	k = keys.Canon(k)
+	s.err = ""
 	upper := k.Mod == 0 && k.Code >= 'A' && k.Code <= 'Z'
 	if upper {
 		// Hints are lowercase; only the first character's case counts.
@@ -78,6 +73,10 @@ func (s *hintState) key(k keys.Key) []Action {
 			if p.label == next && p.read == paneUnread {
 				// The pane's Hints show up, filtered, when it arrives.
 				continues = true
+			}
+			if p.label == next && p.read == paneUnreadable {
+				s.err = unreadable(p.label).Error()
+				return []Action{Redraw{}}
 			}
 			for text, h := range p.hints {
 				if h == next {

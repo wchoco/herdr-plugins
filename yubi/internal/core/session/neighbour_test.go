@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -28,6 +29,14 @@ type splitRun struct {
 // is not read until the test calls release.
 func startSplit(t *testing.T, mode session.Mode, tab *layout.Tab, toml string, captures map[string]fixture.Capture, gated ...string) *splitRun {
 	t.Helper()
+	return startSplitWith(t, mode, tab, toml, captures, nil, nil, gated...)
+}
+
+// startSplitWith is startSplit where a read of a pane in failing fails
+// with its error, and the session is watched through events when it is
+// not nil.
+func startSplitWith(t *testing.T, mode session.Mode, tab *layout.Tab, toml string, captures map[string]fixture.Capture, failing map[string]error, events *fakeEvents, gated ...string) *splitRun {
+	t.Helper()
 	cfg := session.Config{Mode: mode, Target: tab.Target, Layout: tab}
 	if toml != "" {
 		settings, err := config.Parse([]byte(toml))
@@ -37,19 +46,19 @@ func startSplit(t *testing.T, mode session.Mode, tab *layout.Tab, toml string, c
 		cfg.Settings = &settings
 	}
 	r := &splitRun{
-		src:  &fakeSource{captures: captures, gate: map[string]chan struct{}{}},
+		src:  &fakeSource{captures: captures, paneErr: failing, gate: map[string]chan struct{}{}},
 		c:    &calls{},
 		term: newLiveTerminal(77, 18),
 	}
 	for _, id := range gated {
 		r.src.gate[id] = make(chan struct{})
 	}
+	d := session.Deps{Source: r.src, Clipboard: logClipboard{r.c}, Paster: logPaster{r.c}, Terminal: r.term}
+	if events != nil {
+		d.Events = events
+	}
 	done := make(chan error, 1)
-	go func() {
-		done <- session.Run(context.Background(), cfg, session.Deps{
-			Source: r.src, Clipboard: logClipboard{r.c}, Paster: logPaster{r.c}, Terminal: r.term,
-		})
-	}()
+	go func() { done <- session.Run(context.Background(), cfg, d) }()
 	r.done = done
 	return r
 }
@@ -419,4 +428,178 @@ func TestNeighbourSelectionIsDrawnInThatPaneOnly(t *testing.T) {
 	}
 	close(r.term.input)
 	wait(t, r.done)
+}
+
+func TestUnreadableNeighbourKeepsItsLabelAndIsNoted(t *testing.T) {
+	// rightTall: the tall right pane "n" fails; the lower left pane keeps
+	// "b", the label it gets on every other launch.
+	r := startSplitWith(t, session.ModeHint, rightTall, "", map[string]fixture.Capture{
+		"w1:p1": screenOf("target /one"),
+		"w1:p2": screenOf("lower /left"),
+	}, map[string]error{"w1:p3": errors.New("pane_not_found")}, nil)
+	g := r.arrived(t, 2)
+	if got := statusText(g); !strings.HasSuffix(got, "pane n unreadable") {
+		t.Errorf("status %q, want the unreadable pane noted", got)
+	}
+	for y := 0; y < g.H-1; y++ {
+		if got := strings.Trim(g.RowText(y)[strings.LastIndex(g.RowText(y), "│")+len("│"):], " "); got != "" {
+			t.Errorf("unreadable pane row %d drawn: %q", y, got)
+		}
+	}
+	if got, want := r.finish(t, "ba"), []string{"copy /left"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestTypingAnUnreadablePanesLabelSaysSo(t *testing.T) {
+	captures := map[string]fixture.Capture{
+		"w1:p1": screenOf("target /one"),
+		"w1:p2": screenOf("lower /left"),
+	}
+	failing := map[string]error{"w1:p3": errors.New("pane_not_found")}
+	t.Run("hint mode", func(t *testing.T) {
+		r := startSplitWith(t, session.ModeHint, rightTall, "", captures, failing, nil)
+		r.arrived(t, 2)
+		if got, want := statusText(r.press(t, "n")), "HINT    pane n unreadable"; !strings.HasPrefix(got, want) {
+			t.Errorf("status %q, want it to start %q", got, want)
+		}
+		if got, want := r.finish(t, "ba"), []string{"copy /left"}; !reflect.DeepEqual(got, want) {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+	t.Run("hint mode, label typed before the read failed", func(t *testing.T) {
+		r := startSplitWith(t, session.ModeHint, rightTall, "", captures, failing, nil, "w1:p3")
+		r.arrived(t, 1)
+		r.press(t, "n")
+		if got, want := statusText(r.release(t, "w1:p3")), "HINT  n  pane n unreadable"; !strings.HasPrefix(got, want) {
+			t.Errorf("status %q, want it to start %q", got, want)
+		}
+		r.press(t, "\x7f")
+		if got, want := r.finish(t, "ba"), []string{"copy /left"}; !reflect.DeepEqual(got, want) {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+	t.Run("line mode", func(t *testing.T) {
+		r := startSplitWith(t, session.ModeLine, rightTall, "", captures, failing, nil)
+		r.arrived(t, 2)
+		if got, want := statusText(r.press(t, "n")), "LINE  n  pane n unreadable"; !strings.HasPrefix(got, want) {
+			t.Errorf("status %q after the label, want it to start %q", got, want)
+		}
+		r.press(t, "1")
+		if got, want := statusText(r.press(t, "\r")), "LINE  n1  pane n unreadable"; !strings.HasPrefix(got, want) {
+			t.Errorf("status %q after commit, want it to start %q", got, want)
+		}
+		if got := r.finish(t, "\x03"); got != nil {
+			t.Errorf("got %q, want nothing copied", got)
+		}
+	})
+}
+
+func TestEmptyTargetLetsANeighbourBeCopied(t *testing.T) {
+	tests := []struct {
+		name   string
+		mode   session.Mode
+		target fixture.Capture
+		keys   string
+		want   string
+	}{
+		{name: "hint mode, blank target", mode: session.ModeHint, target: fixture.Capture{}, keys: "na", want: "copy /two"},
+		{name: "hint mode, no matches on the target", mode: session.ModeHint, target: screenOf("plain words"), keys: "na", want: "copy /two"},
+		{name: "line mode, blank target", mode: session.ModeLine, target: fixture.Capture{}, keys: "n1\r", want: "copy neighbour /two"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := startSplit(t, tt.mode, twoPanes, "", map[string]fixture.Capture{
+				"w1:p1": tt.target,
+				"w1:p2": screenOf("neighbour /two"),
+			})
+			r.arrived(t, 1)
+			if got := r.finish(t, tt.keys); !reflect.DeepEqual(got, []string{tt.want}) {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEmptyStateWaitsForTheLastPaneToArrive(t *testing.T) {
+	blank, plain := fixture.Capture{}, screenOf("plain words")
+	tests := []struct {
+		name             string
+		mode             session.Mode
+		target, neighbor fixture.Capture
+		unreadable       bool
+		first, last      string // status row before and after the neighbour arrives
+	}{
+		{name: "hint mode, neither has a match", mode: session.ModeHint, target: plain, neighbor: plain,
+			first: "HINT", last: "no matches"},
+		{name: "hint mode, blank target, neighbour has text", mode: session.ModeHint, target: blank, neighbor: plain,
+			first: "HINT", last: "no matches"},
+		{name: "hint mode, both blank", mode: session.ModeHint, target: blank, neighbor: blank,
+			first: "HINT", last: "nothing to copy"},
+		{name: "hint mode, blank target, neighbour unreadable", mode: session.ModeHint, target: blank, unreadable: true,
+			first: "HINT", last: "nothing to copy"},
+		{name: "hint mode, no match on the target, neighbour unreadable", mode: session.ModeHint, target: plain, unreadable: true,
+			first: "HINT", last: "no matches"},
+		{name: "line mode, both blank", mode: session.ModeLine, target: blank, neighbor: blank,
+			first: "LINE", last: "nothing to copy"},
+		{name: "line mode, blank target, neighbour unreadable", mode: session.ModeLine, target: blank, unreadable: true,
+			first: "LINE", last: "nothing to copy"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var failing map[string]error
+			if tt.unreadable {
+				failing = map[string]error{"w1:p2": errors.New("pane_not_found")}
+			}
+			r := startSplitWith(t, tt.mode, twoPanes, "", map[string]fixture.Capture{
+				"w1:p1": tt.target,
+				"w1:p2": tt.neighbor,
+			}, failing, nil, "w1:p2")
+			if got := statusText(r.arrived(t, 0)); got != tt.first {
+				t.Errorf("status %q before the neighbour arrived, want %q", got, tt.first)
+			}
+			if got := statusText(r.release(t, "w1:p2")); got != tt.last {
+				t.Errorf("status %q after it arrived, want %q", got, tt.last)
+			}
+			if got := r.finish(t, "a"); got != nil {
+				t.Errorf("got %q, want nothing copied", got)
+			}
+		})
+	}
+}
+
+func TestNeighbourGoingAwayKeepsTheOverlayAndItsText(t *testing.T) {
+	for _, ev := range []session.Event{
+		session.PaneClosed{Pane: "w1:p2"},
+		session.PaneExited{Pane: "w1:p2"},
+		session.PaneMoved{Previous: "w1:p2"},
+	} {
+		t.Run(fmt.Sprintf("%T", ev), func(t *testing.T) {
+			events := &fakeEvents{ch: make(chan session.Event)}
+			r := startSplitWith(t, session.ModeHint, twoPanes, "", map[string]fixture.Capture{
+				"w1:p1": screenOf("target /one"),
+				"w1:p2": screenOf("neighbour /two"),
+			}, nil, events)
+			r.arrived(t, 1)
+			events.ch <- ev // unbuffered: the session has taken it
+			if got, want := r.finish(t, "na"), []string{"copy /two"}; !reflect.DeepEqual(got, want) {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestNoEmptyStateWhileAnyPaneHasSomething(t *testing.T) {
+	// The Target has a Match, the neighbour has none: Hint Mode stays.
+	r := startSplit(t, session.ModeHint, twoPanes, "", map[string]fixture.Capture{
+		"w1:p1": screenOf("target /one"),
+		"w1:p2": screenOf("plain words"),
+	}, "w1:p2")
+	r.arrived(t, 0)
+	if got := statusText(r.release(t, "w1:p2")); got != "HINT" {
+		t.Errorf("status %q, want Hint Mode", got)
+	}
+	if got, want := r.finish(t, "a"), []string{"copy /one"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
 }

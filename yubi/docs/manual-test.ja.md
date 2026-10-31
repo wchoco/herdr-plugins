@@ -112,6 +112,9 @@ bracketed paste を有効にする zsh か bash のプロンプトで、テス�
 - [ ] `prefix+y` で左のペインの `first line` と `second line` を選び（例：`n4-3`）、**Alt-Ctrl-J**：`first line   second line` が 1 行で Target Pane（右下のペイン）のプロンプトに貼られ、実行されない。左のペインには貼られない。
 - [ ] `prefix+f` のあと `prefix+y`：どちらのモードでもラベルは同じ（左のペインが `n`、右上が `b`）。
 - [ ] **短いアルファベット**：yubi の `config.toml` に `hint.alphabet = "asd"` を書く。`prefix+f`：左のペインにラベル `d` が付き、右上のペインには Hint が出ず薄く表示されるだけで、Target Pane の Hint は `a` と `s` だけを使う。`config.toml` はもとに戻す。
+- [ ] **空の Target**：Target Pane（右下のペイン）で `clear` を実行する。`prefix+f`：`nothing to copy` は出ず、Hint Mode が開いてほかのペインに Hint が出る。`n` の Hint を打つ：クリップボードに左のペインのその Match が入っている。`prefix+y`：Line Mode が開く。`n1` を打って Enter：クリップボードに左のペインの一番下の行が入っている。
+- [ ] **どこにも何もない**：3 つのペインすべてで `clear` を実行し、右下のペインにフォーカスする。`prefix+f`：`nothing to copy` が普通の文字で出る。左のペインにただの単語をいくつか出す：`prefix+f` で `no matches` と出る。どちらもどのキーでも閉じる。
+- 読めない Neighbour Pane（空白で、ステータス行に `pane <label> unreadable`）は、本物の herdr ではわざと作れない。読み取りが失敗するのは、レイアウトを読んでからそのペインを読むまでのあいだにペインがなくなったときだけだからだ。これは自動テストとレンダリングのゴールデン `hint-split3-unreadable` で確かめている。
 
 ## 再起動とモード切り替え
 
@@ -127,6 +130,7 @@ bracketed paste を有効にする zsh か bash のプロンプトで、テス�
 - [ ] **誤ったリサイズがない**：オーバーレイを開いて数秒待ち、同じバインドをもう一度押す：オーバーレイが閉じる（自動で閉じてはおらず、`cannot read target` のメッセージも出ない）。
 - [ ] **フォーカスが離れる**：オーバーレイを開き、herdr のキーで別のタブに移る：戻ってきたときにはオーバーレイが消えている。
 - [ ] **ズーム解除**：分割したタブでオーバーレイを開き、herdr のズーム切り替えキーを使う：オーバーレイが自動で閉じる。
+- [ ] **Neighbour が閉じる**：[Neighbour Pane](#neighbour-pane) の 3 分割のレイアウトで、右上のペインで `sleep 5; exit` を実行し、左のペインにフォーカスして 5 秒以内に `prefix+f` を押す。シェルが終了すると、オーバーレイが自動で閉じる。これは yubi ではなく、ペインのどれかが閉じるか終了したときに herdr がタブのズームを解除するためだ。yubi 自身は Neighbour Pane が閉じても、終了しても、移動してもオーバーレイを開いたままにする（自動テストで確かめている）が、herdr にはそれが起こるレイアウトがない。herdr はズームしたタブからペインを移動させないので、オーバーレイが開いているあいだに Neighbour Pane が移動することもない。
 
 ## メッセージと設定エラー
 

@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"strings"
 
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
@@ -33,17 +34,44 @@ func (m *Machine) Neighbour(pane string, scr screen.Screen) []Action {
 	if m.hint != nil && p.label != "" {
 		p.findHints(m.place.H, m.settings.Patterns, m.settings.Alphabet)
 	}
+	m.settle()
 	return []Action{Redraw{}}
 }
 
 // NeighbourUnreadable tells the machine that a Neighbour Pane could not be
-// read. The pane stays blank and nothing is shown; a pane that is not a
-// Neighbour Pane is ignored.
+// read. The pane keeps its Pane Label and stays blank, and the status row
+// notes it; a pane that is not a Neighbour Pane is ignored.
 func (m *Machine) NeighbourUnreadable(pane string, err error) []Action {
-	if p := m.neighbour(pane); p != nil {
-		p.fail(err)
+	p := m.neighbour(pane)
+	if p == nil {
+		return nil
 	}
-	return nil
+	p.fail(err)
+	if m.hint != nil && p.label != "" && m.hint.typed == p.label {
+		// The label typed while the pane was being read leads nowhere.
+		m.hint.err = unreadable(p.label).Error()
+	}
+	m.settle()
+	return []Action{Redraw{}}
+}
+
+// unreadableNote returns the status row's note on the Neighbour Panes
+// with a Pane Label that could not be read, in layout reading order, or
+// "" when there are none.
+func (m *Machine) unreadableNote() string {
+	var labels []string
+	for _, p := range readingOrder(m.panes[1:]) {
+		if p.read == paneUnreadable && p.label != "" {
+			labels = append(labels, p.label)
+		}
+	}
+	switch len(labels) {
+	case 0:
+		return ""
+	case 1:
+		return "pane " + labels[0] + " unreadable"
+	}
+	return "panes " + strings.Join(labels, ",") + " unreadable"
 }
 
 // neighbour returns the Neighbour Pane with id pane, or nil.

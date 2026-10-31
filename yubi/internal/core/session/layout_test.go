@@ -45,6 +45,7 @@ func TestLayoutRenderGoldens(t *testing.T) {
 		tab        *layout.Tab
 		w, h       int
 		neighbours map[string]string // pane id -> capture; a missing pane stays blank
+		unreadable []string          // panes whose read failed
 		typed      string
 	}{
 		// The Target re-renders over itself on the left; its last row is
@@ -69,6 +70,10 @@ func TestLayoutRenderGoldens(t *testing.T) {
 		// "b", is not read yet, so it is blank.
 		{name: "hint-split3", mode: session.ModeHint, target: "links", tab: threePanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p1": "shell"}},
+		// w1:p3, labelled "b", could not be read: it is blank like a pane
+		// not read yet, and the status row notes it on the right.
+		{name: "hint-split3-unreadable", mode: session.ModeHint, target: "links", tab: threePanes, w: 77, h: 18,
+			neighbours: map[string]string{"w1:p1": "shell"}, unreadable: []string{"w1:p3"}},
 		// Both neighbours are numbered after their labels: "n" on the
 		// left, "b" below the Target, counted from its own last
 		// non-blank displayed row. The unlabelled input selects in the
@@ -100,6 +105,11 @@ func TestLayoutRenderGoldens(t *testing.T) {
 					t.Errorf("Neighbour(%s) = %v, want a redraw", id, got)
 				}
 			}
+			for _, id := range tt.unreadable {
+				if got := m.NeighbourUnreadable(id, errors.New("pane_not_found")); !reflect.DeepEqual(got, []session.Action{session.Redraw{}}) {
+					t.Errorf("NeighbourUnreadable(%s) = %v, want a redraw", id, got)
+				}
+			}
 			for _, r := range tt.typed {
 				m.Key(keyOf(r))
 			}
@@ -115,25 +125,6 @@ func TestNeighbourNotInLayoutIsIgnored(t *testing.T) {
 	}
 	if got := m.Neighbour("w1:p9", parse(t, "shell")); got != nil {
 		t.Errorf("unknown pane: %v", got)
-	}
-}
-
-func TestUnreadableNeighbourStaysBlankWithNoMessage(t *testing.T) {
-	for _, mode := range []session.Mode{session.ModeLine, session.ModeHint} {
-		t.Run(string(mode), func(t *testing.T) {
-			p := layout.Place(twoPanes, 77, 18)
-			m := session.NewLineAt(parse(t, "links"), p)
-			if mode == session.ModeHint {
-				m = session.NewHintAt(parse(t, "links"), p)
-			}
-			before := m.Frame().Dump()
-			if got := m.NeighbourUnreadable("w1:p2", errors.New("pane_not_found")); got != nil {
-				t.Errorf("NeighbourUnreadable = %v, want nothing to do", got)
-			}
-			if got := m.Frame().Dump(); got != before {
-				t.Errorf("frame changed:\n%s\nwant\n%s", got, before)
-			}
-		})
 	}
 }
 
@@ -275,7 +266,7 @@ func TestNeighbourIsNumberedWhenItsReadArrives(t *testing.T) {
 	}
 }
 
-func TestFailingNeighbourLeavesItsRectBlankSilently(t *testing.T) {
+func TestFailingNeighbourStillLetsTheTargetBeCopied(t *testing.T) {
 	src := &fakeSource{
 		captures: map[string]fixture.Capture{"w1:p1": fixture.Load(t, "cjk")},
 		paneErr:  map[string]error{"w1:p2": errors.New("pane_not_found")},
