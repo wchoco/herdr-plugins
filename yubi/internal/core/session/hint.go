@@ -4,20 +4,18 @@ import (
 	"strings"
 
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/config"
-	"github.com/wchoco/herdr-plugins/yubi/internal/core/hint"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/keys"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/layout"
-	"github.com/wchoco/herdr-plugins/yubi/internal/core/line"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/render"
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/screen"
 )
 
-// hintState is Hint Mode's part of the Machine.
+// hintState is Hint Mode's part of the Machine. The Matches and Hints
+// are held per Visible Pane.
 type hintState struct {
-	matches []hint.Match      // on the displayed rows, in reading order
-	hints   map[string]string // copied text -> Hint
-	typed   string            // Hint characters typed so far
-	paste   bool              // the first character was uppercase: Paste Copy
+	panes []*visiblePane // the Machine's Visible Panes
+	typed string         // Hint characters typed so far
+	paste bool           // the first character was uppercase: Paste Copy
 }
 
 // NewHint starts Hint Mode on scr in a w x h overlay. Only the rows above
@@ -35,19 +33,19 @@ func NewHintAt(scr screen.Screen, p layout.Placement) *Machine {
 }
 
 func newHint(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
-	m := &Machine{scr: scr, settings: settings, place: p}
-	n := displayedRows(p)
-	displayed := scr.Rows[:max(min(n, len(scr.Rows)), 0)]
-	if line.NewNumbering(scr, n).Max() == 0 {
+	m := &Machine{settings: settings, place: p, panes: visiblePanes(p)}
+	t := m.target()
+	t.arrive(scr, p.H)
+	if t.num.Max() == 0 {
 		m.inform("nothing to copy")
 		return m
 	}
-	ms := hint.Find(displayed, settings.Patterns)
-	if len(ms) == 0 {
+	t.findHints(p.H, settings)
+	if len(t.matches) == 0 {
 		m.inform("no matches")
 		return m
 	}
-	m.hint = &hintState{matches: ms, hints: hint.Assign(ms, settings.Alphabet)}
+	m.hint = &hintState{panes: m.panes}
 	return m
 }
 
@@ -74,15 +72,17 @@ func (s *hintState) key(k keys.Key) []Action {
 		next := s.typed + string(k.Code)
 		paste := s.paste || s.typed == "" && upper
 		continues := false
-		for text, h := range s.hints {
-			if h == next {
-				if paste {
-					return []Action{Paste{Text: text}}
+		for _, p := range s.panes {
+			for text, h := range p.hints {
+				if h == next {
+					if paste {
+						return []Action{Paste{Text: text}}
+					}
+					return []Action{Copy{Text: text}}
 				}
-				return []Action{Copy{Text: text}}
-			}
-			if strings.HasPrefix(h, next) {
-				continues = true
+				if strings.HasPrefix(h, next) {
+					continues = true
+				}
 			}
 		}
 		if continues {
@@ -94,27 +94,28 @@ func (s *hintState) key(k keys.Key) []Action {
 	return nil
 }
 
-// draw draws the displayed rows of the Target Pane faint in its grid t,
+// draw draws the displayed rows of p faint in its grid,
 // Matches underlined where visible, and the Hints that still fit the typed
 // prefix over the first cells of their Matches. A Hint that does not fit
 // before the grid's right edge, because its Match starts too far right or
 // off-screen, is right-aligned to the edge instead; several on one row go
 // leftward from the edge in Match order.
-func (s *hintState) draw(g *render.Grid, scr screen.Screen, t layout.Rect, displayed int) {
+func (s *hintState) draw(g *render.Grid, p *visiblePane, h int) {
+	t, scr, displayed := p.grid, p.scr, p.displayed(h)
 	for y := 0; y < displayed; y++ {
 		if y < len(scr.Rows) {
 			drawRow(g, t.Y+y, t.X, t.Width, scr.Rows[y])
 		}
 		g.Restyle(t.Y+y, t.X, t.Width, render.Dim)
 	}
-	for _, m := range s.matches {
+	for _, m := range p.matches {
 		if m.Col < t.Width {
 			g.Restyle(t.Y+m.Row, t.X+m.Col, min(m.Width, t.Width-m.Col), render.Match)
 		}
 	}
 	edge := map[int]int{} // row -> where the next right-aligned Hint ends
-	for _, m := range s.matches {
-		h, ok := s.hints[m.Text]
+	for _, m := range p.matches {
+		h, ok := p.hints[m.Text]
 		if !ok {
 			continue
 		}

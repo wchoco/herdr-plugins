@@ -8,13 +8,6 @@ import (
 	"github.com/wchoco/herdr-plugins/yubi/internal/core/screen"
 )
 
-// displayedRows returns how many of the Target Pane's rows yubi displays:
-// the rows of its grid that are above the status row, which is always the
-// overlay's bottom row.
-func displayedRows(p layout.Placement) int {
-	return max(min(p.Target.Height, p.H-1-p.Target.Y), 0)
-}
-
 // targetTab returns the session's tab layout with the Target Pane named
 // by the Config, or nil without one.
 func targetTab(cfg Config) *layout.Tab {
@@ -26,38 +19,51 @@ func targetTab(cfg Config) *layout.Tab {
 	return &t
 }
 
-// Neighbour hands the machine the screen of another pane in the tab, read
-// in the background. It is drawn dimmed at that pane's place; a pane that
-// is not one of the other panes is ignored.
+// Neighbour hands the machine the screen of a Neighbour Pane, read in the
+// background. It is drawn dimmed in that pane's grid; a pane that is not
+// a Neighbour Pane is ignored.
 func (m *Machine) Neighbour(pane string, scr screen.Screen) []Action {
-	for _, o := range m.place.Others {
-		if o.ID == pane {
-			if m.others == nil {
-				m.others = map[string]screen.Screen{}
-			}
-			m.others[pane] = scr
-			return []Action{Redraw{}}
+	p := m.neighbour(pane)
+	if p == nil {
+		return nil
+	}
+	p.arrive(scr, m.place.H)
+	return []Action{Redraw{}}
+}
+
+// NeighbourUnreadable tells the machine that a Neighbour Pane could not be
+// read. The pane stays blank and nothing is shown; a pane that is not a
+// Neighbour Pane is ignored.
+func (m *Machine) NeighbourUnreadable(pane string, err error) []Action {
+	if p := m.neighbour(pane); p != nil {
+		p.fail(err)
+	}
+	return nil
+}
+
+// neighbour returns the Neighbour Pane with id pane, or nil.
+func (m *Machine) neighbour(pane string) *visiblePane {
+	if m.panes == nil {
+		return nil
+	}
+	for _, p := range m.panes[1:] {
+		if p.id == pane {
+			return p
 		}
 	}
 	return nil
 }
 
-// drawOthers draws the pane frames as faint rules and the other panes read
-// so far dimmed, without labels. A pane not read (yet) stays blank.
-func (m *Machine) drawOthers(g *render.Grid) {
-	for _, f := range m.place.Frames {
-		g.Box(f.X, f.Y, f.Width, f.Height, render.Rule)
+// drawDimmed draws every row of p's grid dimmed, once p is read; a pane
+// not read stays blank.
+func drawDimmed(g *render.Grid, p *visiblePane) {
+	if p.read != paneRead {
+		return
 	}
-	for _, o := range m.place.Others {
-		scr, ok := m.others[o.ID]
-		if !ok {
-			continue
-		}
-		r := o.Rect
-		for y := 0; y < r.Height && y < len(scr.Rows); y++ {
-			drawRow(g, r.Y+y, r.X, r.Width, scr.Rows[y])
-			g.Restyle(r.Y+y, r.X, r.Width, render.Dim)
-		}
+	r := p.grid
+	for y := 0; y < r.Height && y < len(p.scr.Rows); y++ {
+		drawRow(g, r.Y+y, r.X, r.Width, p.scr.Rows[y])
+		g.Restyle(r.Y+y, r.X, r.Width, render.Dim)
 	}
 }
 
@@ -79,23 +85,27 @@ func drawRow(g *render.Grid, y, x, width int, r screen.Row) {
 	g.DrawRow(y, x, clipped)
 }
 
-// neighbour is the result of reading another pane.
-type neighbour struct {
+// neighbourRead is the result of reading a Neighbour Pane: its screen, or
+// why it could not be read.
+type neighbourRead struct {
 	pane string
 	scr  screen.Screen
+	err  error
 }
 
-// readOthers reads every other pane once, in the background, and delivers
-// the screens that could be read. A failed read is dropped silently. The
-// reads end when ctx is done; nothing waits for them.
-func readOthers(ctx context.Context, src PaneSource, others []layout.Pane) <-chan neighbour {
-	out := make(chan neighbour, len(others)) // never blocks a reader
+// readOthers reads every Neighbour Pane once, in the background, and
+// delivers each result, a failed read included. The reads end when ctx is
+// done; nothing waits for them.
+func readOthers(ctx context.Context, src PaneSource, others []layout.Pane) <-chan neighbourRead {
+	out := make(chan neighbourRead, len(others)) // never blocks a reader
 	for _, o := range others {
 		go func() {
 			ansi, err := src.ReadVisible(ctx, o.ID, FormatANSI)
-			if err == nil {
-				out <- neighbour{o.ID, screen.ParseANSI(ansi)}
+			if err != nil {
+				out <- neighbourRead{pane: o.ID, err: err}
+				return
 			}
+			out <- neighbourRead{pane: o.ID, scr: screen.ParseANSI(ansi)}
 		}()
 	}
 	return out

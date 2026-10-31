@@ -39,20 +39,21 @@ func (Redraw) action() {}
 type Machine struct {
 	cfg      Config        // the session's ids, for telling stale events apart
 	settings config.Config // from config.toml, or the defaults
-	scr      screen.Screen
-	num      line.Numbering
-	input    string // Line Mode input typed so far
-	err      string // input error shown next to the input until the next key
-	message  string // when set, a message-only state: nothing is selectable
-	info     bool   // message is information, not an error: drawn plain
+	input    string        // Line Mode input typed so far
+	err      string        // input error shown next to the input until the next key
+	message  string        // when set, a message-only state: nothing is selectable
+	info     bool          // message is information, not an error: drawn plain
 
 	pasteFailed bool // message reports a failed paste; stale exits wait for a key
 
 	hint *hintState // set in Hint Mode
 
-	place  layout.Placement         // where the Target and the other panes are drawn
-	others map[string]screen.Screen // other panes read so far, by pane id
+	place layout.Placement // where the Visible Panes are drawn
+	panes []*visiblePane   // the Visible Panes, the Target Pane first
 }
+
+// target returns the Target Pane.
+func (m *Machine) target() *visiblePane { return m.panes[0] }
 
 // NewLine starts Line Mode on scr in a w x h overlay. The status row is the
 // overlay's bottom row, so the rows above it are the rows yubi displays.
@@ -67,8 +68,9 @@ func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
 }
 
 func newLine(scr screen.Screen, p layout.Placement, settings config.Config) *Machine {
-	m := &Machine{scr: scr, settings: settings, place: p, num: line.NewNumbering(scr, displayedRows(p))}
-	if m.num.Max() == 0 {
+	m := &Machine{settings: settings, place: p, panes: visiblePanes(p)}
+	m.target().arrive(scr, p.H)
+	if m.target().num.Max() == 0 {
 		m.inform("nothing to copy")
 	}
 	return m
@@ -223,9 +225,10 @@ func (m *Machine) commit(joined, paste bool) []Action {
 		m.err = "nothing to copy"
 		return []Action{Redraw{}}
 	}
-	text := line.Copy(m.scr, rows)
+	scr := m.target().scr
+	text := line.Copy(scr, rows)
 	if joined {
-		text = line.JoinedCopy(m.scr, rows, m.settings.Separator)
+		text = line.JoinedCopy(scr, rows, m.settings.Separator)
 	}
 	if paste {
 		return []Action{Paste{Text: text}}
@@ -237,7 +240,7 @@ func (m *Machine) commit(joined, paste bool) []Action {
 // no text to copy.
 func (m *Machine) blank(rows []int) bool {
 	for _, r := range rows {
-		if strings.TrimSpace(m.scr.Rows[r].Text()) != "" {
+		if strings.TrimSpace(m.target().scr.Rows[r].Text()) != "" {
 			return false
 		}
 	}
@@ -249,7 +252,43 @@ func (m *Machine) selection() ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return m.num.Select(ranges)
+	return m.target().num.Select(ranges)
+}
+
+// drawPanes draws the pane frames as faint rules, then each Visible Pane
+// in its grid: the Neighbour Panes read so far dimmed, then the Target
+// Pane with the current mode's Hints or Line Numbers.
+func (m *Machine) drawPanes(g *render.Grid) {
+	for _, f := range m.place.Frames {
+		g.Box(f.X, f.Y, f.Width, f.Height, render.Rule)
+	}
+	for _, p := range m.panes[1:] {
+		drawDimmed(g, p)
+	}
+	if m.hint != nil {
+		m.hint.draw(g, m.target(), m.place.H)
+	} else {
+		m.drawLines(g, m.target())
+	}
+}
+
+// drawLines draws the displayed rows of p in its grid with their Line
+// Numbers, the rows the input selects so far in reverse video.
+func (m *Machine) drawLines(g *render.Grid, p *visiblePane) {
+	t := p.grid
+	labelWidth := len(strconv.Itoa(p.num.Max()))
+	shown := min(p.displayed(m.place.H), len(p.scr.Rows))
+	for y := 0; y < shown; y++ {
+		drawRow(g, t.Y+y, t.X, t.Width, p.scr.Rows[y])
+	}
+	for _, y := range p.num.Rows(line.Preview(m.input)) {
+		g.Select(t.Y+y, t.X, t.Width)
+	}
+	for y := 0; y < shown; y++ {
+		if n := p.num.Of(y); n > 0 {
+			g.Label(t.Y+y, t.X, padLeft(strconv.Itoa(n), labelWidth), render.LineNumber)
+		}
+	}
 }
 
 // Frame renders the current state.
@@ -260,25 +299,7 @@ func (m *Machine) Frame() *render.Grid {
 	}
 	status := g.H - 1
 	if m.message == "" {
-		m.drawOthers(g)
-	}
-	t := m.place.Target
-	if m.message == "" && m.hint != nil {
-		m.hint.draw(g, m.scr, t, displayedRows(m.place))
-	} else if m.message == "" {
-		labelWidth := len(strconv.Itoa(m.num.Max()))
-		shown := min(displayedRows(m.place), len(m.scr.Rows))
-		for y := 0; y < shown; y++ {
-			drawRow(g, t.Y+y, t.X, t.Width, m.scr.Rows[y])
-		}
-		for _, y := range m.num.Rows(line.Preview(m.input)) {
-			g.Select(t.Y+y, t.X, t.Width)
-		}
-		for y := 0; y < shown; y++ {
-			if n := m.num.Of(y); n > 0 {
-				g.Label(t.Y+y, t.X, padLeft(strconv.Itoa(n), labelWidth), render.LineNumber)
-			}
-		}
+		m.drawPanes(g)
 	}
 	g.Fill(status, 0, g.W, render.Status)
 	text, errText := m.statusText()

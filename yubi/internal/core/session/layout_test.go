@@ -103,6 +103,25 @@ func TestNeighbourNotInLayoutIsIgnored(t *testing.T) {
 	}
 }
 
+func TestUnreadableNeighbourStaysBlankWithNoMessage(t *testing.T) {
+	for _, mode := range []session.Mode{session.ModeLine, session.ModeHint} {
+		t.Run(string(mode), func(t *testing.T) {
+			p := layout.Place(twoPanes, 77, 18)
+			m := session.NewLineAt(parse(t, "links"), p)
+			if mode == session.ModeHint {
+				m = session.NewHintAt(parse(t, "links"), p)
+			}
+			before := m.Frame().Dump()
+			if got := m.NeighbourUnreadable("w1:p2", errors.New("pane_not_found")); got != nil {
+				t.Errorf("NeighbourUnreadable = %v, want nothing to do", got)
+			}
+			if got := m.Frame().Dump(); got != before {
+				t.Errorf("frame changed:\n%s\nwant\n%s", got, before)
+			}
+		})
+	}
+}
+
 func TestHintModeRightClippedMatchCopiesItsFullText(t *testing.T) {
 	// In a 40-wide overlay ~/proj/out.txt on row 8 starts at column 39,
 	// past its Hint's room; its Hint "a" sits at the right edge (golden
