@@ -90,7 +90,7 @@ bracketed paste を有効にする zsh か bash のプロンプトで、テス�
 
 ## レイアウト
 
-- [ ] **分割**：タブを 3 つに分ける（`herdr pane split --current --direction right`、続いて新しいペインで `herdr pane split --current --direction down`）。そのうち 1 つにテスト画面を出してフォーカスする。`prefix+f` と `prefix+y`：Target Pane がもとの位置にそのまま描き直される。ほかのペインはもとの位置に薄く表示され、ペインの間の罫線も薄い。画面のどこも動かない。Line Mode では Line Number は Target Pane にだけ出る。ほかのペインでの Hint Mode は [Neighbour Pane](#neighbour-pane) で確かめる。
+- [ ] **分割**：タブを 3 つに分ける（`herdr pane split --current --direction right`、続いて新しいペインで `herdr pane split --current --direction down`）。そのうち 1 つにテスト画面を出してフォーカスする。`prefix+f` と `prefix+y`：Target Pane がもとの位置にそのまま描き直される。ほかのペインはもとの位置に表示され、ペインの間の罫線は薄い。画面のどこも動かない。ほかのペインの Hint と Line Number は [Neighbour Pane](#neighbour-pane) で確かめる。
 - [ ] **分割・狭い**：狭い分割ペインに、右端で切れる URL を出す。`prefix+f`：その Hint は見えている最後のセルに右寄せされ、打つと URL 全体がコピーされる。
 - [ ] **ズーム中**：分割ペインをズームする（`herdr pane zoom --current --on`）。`prefix+f` と `prefix+y`：ズーム中のペインがもとの位置に全面の大きさで描き直され、ほかのペインも罫線も出ない。コピーもできる。オーバーレイが閉じたあとも、ペインはズームしたまま。バインドをもう一度押して閉じたとき（`prefix+f` を 2 回）と、`prefix+f`、`prefix+y`、Esc のあとも同じ。
 - [ ] **タブ全体を占める 1 つのペイン**：ステータス行が最後の行を覆い、右端の何列かが切れる（README の既知の制限を参照）。コピーはできる。
@@ -105,6 +105,12 @@ bracketed paste を有効にする zsh か bash のプロンプトで、テス�
 - [ ] `prefix+f` で `b` の Hint を打つ：クリップボードに右上のペインのそのパスが入っている。
 - [ ] `prefix+f` で `n` の Hint を、1 文字目を大文字にして打つ（例：`Na`）：`N` のあとに `paste` の印が出て、テキストは Target Pane（右下のペイン）のプロンプトに貼られ、実行されない。左のペインには貼られない。
 - [ ] 同じレイアウトで 3 回開く：ラベルも Hint も毎回同じ。
+- [ ] `prefix+y`：すべてのペインに Line Number が出て、それぞれのペインの最後の空でない行から 1 で数え上がる。左のペインの Line Number はラベルを前に付けて描かれ（`n1`、`n2`、…）、右上のペインは `b` が付き、Target Pane にはラベルが付かない。
+- [ ] `prefix+y` で `n` と、左のペインの `second line` の Line Number を打つ（例：`n3`）：その行が左のペインでだけ反転表示される。Enter：クリップボードに左のペインの `second line` が入っている。
+- [ ] `prefix+y` で Target Pane の `second line` の Line Number をラベルなしで打って Enter：ペインが 1 つのときと同じく、クリップボードに Target Pane の `second line` が入っている。
+- [ ] `prefix+y` で `3,n2` を打って Enter：ステータス行に `one pane at a time` と出て、オーバーレイは開いたまま。Ctrl-U のあと `x1` を打って Enter：`invalid input` と出る。Esc：何もコピーされていない。
+- [ ] `prefix+y` で左のペインの `first line` と `second line` を選び（例：`n4-3`）、**Alt-Ctrl-J**：`first line   second line` が 1 行で Target Pane（右下のペイン）のプロンプトに貼られ、実行されない。左のペインには貼られない。
+- [ ] `prefix+f` のあと `prefix+y`：どちらのモードでもラベルは同じ（左のペインが `n`、右上が `b`）。
 - [ ] **短いアルファベット**：yubi の `config.toml` に `hint.alphabet = "asd"` を書く。`prefix+f`：左のペインにラベル `d` が付き、右上のペインには Hint が出ず薄く表示されるだけで、Target Pane の Hint は `a` と `s` だけを使う。`config.toml` はもとに戻す。
 
 ## 再起動とモード切り替え

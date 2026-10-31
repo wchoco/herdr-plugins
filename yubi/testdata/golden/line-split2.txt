@@ -1,38 +1,38 @@
 text:
-7ser@host:~/proj$ cat notes.txt       ││user@host:~/proj$ git status         |
-6 本語のテキスト: wide glyphs         ││On branch main                       |
-5ixed ASCII 漢字 and かな, then a URL ││Changes not staged for commit:       |
-4ruecolor 色 and 256-colour           ││  (use "git add <file>..." to update |
-3moji 🎉 party                        ││        modified:   yubi/main.go     |
-2 角 reverse                          ││        modified:   README.md        |
-1ser@host:~/proj$                     ││                                     |
-                                      ││Untracked files:                     |
-                                      ││        yubi/testdata/               |
-                                      ││                                     |
-                                      ││user@host:~/proj$ ls -l              |
-                                      ││total 12                             |
-                                      ││-rw-r--r-- 1 user user 1024 Oct 24 01|
-                                      ││drwxr-xr-x 3 user user 4096 Oct 24 01|
-                                      ││-rwxr-xr-x 1 user user 2048 Oct 24 01|
-                                      ││trailing spaces                      |
+7ser@host:~/proj$ cat notes.txt       ││n16r@host:~/proj$ git status         |
+6 本語のテキスト: wide glyphs         ││n15branch main                       |
+5ixed ASCII 漢字 and かな, then a URL ││n14nges not staged for commit:       |
+4ruecolor 色 and 256-colour           ││n13use "git add <file>..." to update |
+3moji 🎉 party                        ││n12     modified:   yubi/main.go     |
+2 角 reverse                          ││n11     modified:   README.md        |
+1ser@host:~/proj$                     ││n10                                  |
+                                      ││ n9racked files:                     |
+                                      ││ n8     yubi/testdata/               |
+                                      ││ n7                                  |
+                                      ││ n6r@host:~/proj$ ls -l              |
+                                      ││ n5al 12                             |
+                                      ││ n4-r--r-- 1 user user 1024 Oct 24 01|
+                                      ││ n3xr-xr-x 3 user user 4096 Oct 24 01|
+                                      ││ n2xr-xr-x 1 user user 2048 Oct 24 01|
+                                      ││ n1iling spaces                      |
                                       ││                                     |
 LINE  3                                                                      |
 style:
-noooooooo.oooooo......................bbddddddddddddddddddddddddddddddddddddd|
-n.....................................bbddddddddddddddddddddddddddddddddddddd|
-n.....................................bbddddddddddddddddddddddddddddddddddddd|
-nooooooooooo.....oooooooooo...........bbddddddddddddddddddddddddddddddddddddd|
-nrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr.bbddddddddddddddddddddddddddddddddddddd|
-nooo..................................bbddddddddddddddddddddddddddddddddddddd|
-noooooooo.oooooo......................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
-......................................bbddddddddddddddddddddddddddddddddddddd|
+noooooooo.oooooo......................bbnnnoooooo.oooooo.....................|
+n.....................................bbnnn..................................|
+n.....................................bbnnn..................................|
+nooooooooooo.....oooooooooo...........bbnnn..................................|
+nrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr.bbnnn.....oooooooooooooooooooooooo.....|
+nooo..................................bbnnn.....ooooooooooooooooooooo........|
+noooooooo.oooooo......................bbnnn..................................|
+......................................bbnnn..................................|
+......................................bbnnn.....oooooooooooooo...............|
+......................................bbnnn..................................|
+......................................bbnnnoooooo.oooooo.....................|
+......................................bbnnn..................................|
+......................................bbnnn..................................|
+......................................bbnnn..................................|
+......................................bbnnn..................................|
+......................................bbnnn..................................|
+......................................bb.....................................|
 sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss|

@@ -284,3 +284,139 @@ func TestZoomedTabGivesTheTargetTheWholeAlphabet(t *testing.T) {
 		t.Errorf("reads %q, want %q", r.src.reads, want)
 	}
 }
+
+// fiveRows is a screen whose Line Numbers 1 to 5 are "five" up to "one".
+var fiveRows = screenOf("one", "two", "three", "four", "five")
+
+func TestLabelledLineInputCopiesThatPanesRows(t *testing.T) {
+	r := startSplit(t, session.ModeLine, twoPanes, "", map[string]fixture.Capture{
+		"w1:p1": screenOf("target top", "target bottom"),
+		"w1:p2": fiveRows,
+	})
+	r.arrived(t, 1)
+	if got, want := r.finish(t, "n2-4\r"), []string{"copy two\nthree\nfour"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestUnlabelledLineInputStillMeansTheTargetPane(t *testing.T) {
+	r := startSplit(t, session.ModeLine, twoPanes, "", map[string]fixture.Capture{
+		"w1:p1": screenOf("target top", "target bottom"),
+		"w1:p2": fiveRows,
+	})
+	r.arrived(t, 1)
+	if got, want := r.finish(t, "2,1\r"), []string{"copy target top\ntarget bottom"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestBadLabelledLineInputShowsWhyAndCopiesNothing(t *testing.T) {
+	// "jkl" labels only the first neighbour in reading order ("l", the
+	// tall right pane); the lower left one has no label to type.
+	tests := []struct {
+		name, toml, input, want string
+	}{
+		{name: "mixed panes", input: "3,n2", want: "LINE  3,n2  one pane at a time"},
+		{name: "mixed labels", input: "n2,b1", want: "LINE  n2,b1  one pane at a time"},
+		{name: "no such label", input: "x1", want: "LINE  x1  invalid input"},
+		{name: "label alone", input: "n", want: "LINE  n  invalid input"},
+		{name: "unlabelled pane", toml: `hint.alphabet = "jkl"`, input: "k1", want: "LINE  k1  invalid input"},
+		{name: "no such line", input: "n9", want: "LINE  n9  no line 9"},
+		{name: "blank rows", input: "b2", want: "LINE  b2  nothing to copy"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := startSplit(t, session.ModeLine, rightTall, tt.toml, map[string]fixture.Capture{
+				"w1:p1": fiveRows,
+				"w1:p2": screenOf("lower", "", "", "left"),
+				"w1:p3": fiveRows,
+			})
+			r.arrived(t, 2)
+			for _, c := range tt.input {
+				r.press(t, string(c))
+			}
+			if got := statusText(r.press(t, "\r")); got != tt.want {
+				t.Errorf("status %q, want %q", got, tt.want)
+			}
+			if got := r.finish(t, "\x03"); got != nil {
+				t.Errorf("got %q, want nothing copied", got)
+			}
+		})
+	}
+}
+
+func TestLineCommitOnANeighbourNotReadYetWaitsForIt(t *testing.T) {
+	r := startSplit(t, session.ModeLine, twoPanes, "", map[string]fixture.Capture{
+		"w1:p1": screenOf("target"),
+		"w1:p2": fiveRows,
+	}, "w1:p2")
+	r.arrived(t, 0)
+	r.press(t, "n")
+	r.press(t, "1")
+	if got, want := statusText(r.press(t, "\r")), "LINE  n1  pane n not read yet"; got != want {
+		t.Errorf("status %q, want %q", got, want)
+	}
+	r.release(t, "w1:p2")
+	if got, want := r.finish(t, "\r"), []string{"copy five"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestNeighbourLinesJoinedAndPasted(t *testing.T) {
+	tests := []struct {
+		name, toml, keys string
+		want             []string
+	}{
+		{name: "joined copy", toml: `line.separator = " "`, keys: "n3-2\x0a", want: []string{"copy three four"}},
+		{name: "paste copy", keys: "n1\x1b\r", want: []string{"copy five", "paste w1:p1 five"}},
+		{name: "joined paste copy", toml: `line.separator = "+"`, keys: "n2-1\x1b\x0a", want: []string{"copy four+five", "paste w1:p1 four+five"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := startSplit(t, session.ModeLine, twoPanes, tt.toml, map[string]fixture.Capture{
+				"w1:p1": screenOf("target"),
+				"w1:p2": fiveRows,
+			})
+			r.arrived(t, 1)
+			if got := r.finish(t, tt.keys); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPaneLabelsNameTheSamePaneInBothModes(t *testing.T) {
+	// rightTall: "n" is the tall right pane and "b" the lower left one,
+	// in Hint Mode (see above) and in Line Mode alike.
+	captures := map[string]fixture.Capture{
+		"w1:p1": screenOf("target"),
+		"w1:p2": screenOf("lower left"),
+		"w1:p3": screenOf("tall right"),
+	}
+	for input, want := range map[string]string{"n1\r": "copy tall right", "b1\r": "copy lower left"} {
+		r := startSplit(t, session.ModeLine, rightTall, "", captures)
+		r.arrived(t, 2)
+		if got := r.finish(t, input); !reflect.DeepEqual(got, []string{want}) {
+			t.Errorf("%q: got %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestNeighbourSelectionIsDrawnInThatPaneOnly(t *testing.T) {
+	r := startSplit(t, session.ModeLine, twoPanes, "", map[string]fixture.Capture{
+		"w1:p1": fiveRows,
+		"w1:p2": fiveRows,
+	})
+	r.arrived(t, 1)
+	r.press(t, "n")
+	g := r.press(t, "2")
+	// Line 2 is row 3 in both panes; only the neighbour's is selected.
+	if c := g.Cell(3, splitCol+5); c.Role != render.Selected {
+		t.Errorf("neighbour row 3 cell %+v, want selected", c)
+	}
+	if c := g.Cell(3, 4); c.Role == render.Selected {
+		t.Errorf("Target row 3 cell %+v selected", c)
+	}
+	close(r.term.input)
+	wait(t, r.done)
+}

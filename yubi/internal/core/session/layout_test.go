@@ -48,9 +48,13 @@ func TestLayoutRenderGoldens(t *testing.T) {
 		typed      string
 	}{
 		// The Target re-renders over itself on the left; its last row is
-		// under the status row.
+		// under the status row. The neighbour, Pane Label "n", has its
+		// own Line Numbers drawn after the label (n1, n2, ...).
 		{name: "line-split2", mode: session.ModeLine, target: "cjk", tab: twoPanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p2": "shell"}, typed: "3"},
+		// Labelled input selects rows of the neighbour only.
+		{name: "line-split2-neighbour-selected", mode: session.ModeLine, target: "cjk", tab: twoPanes, w: 77, h: 18,
+			neighbours: map[string]string{"w1:p2": "shell"}, typed: "n2-4"},
 		// The neighbour has Pane Label "n": its Hints are drawn with it
 		// (na, ns, ...).
 		{name: "hint-split2", mode: session.ModeHint, target: "links", tab: twoPanes, w: 77, h: 18,
@@ -65,6 +69,10 @@ func TestLayoutRenderGoldens(t *testing.T) {
 		// "b", is not read yet, so it is blank.
 		{name: "hint-split3", mode: session.ModeHint, target: "links", tab: threePanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p1": "shell"}},
+		// Both neighbours are numbered after their labels: "n" on the
+		// left, "b" below the Target, counted from its own last
+		// non-blank displayed row. The unlabelled input selects in the
+		// Target only.
 		{name: "line-split3", mode: session.ModeLine, target: "links", tab: threePanes, w: 77, h: 18,
 			neighbours: map[string]string{"w1:p1": "shell", "w1:p3": "cjk"}, typed: "2-3"},
 		// A full-tab Target: the status row is over its last displayed
@@ -242,16 +250,21 @@ func TestSlowNeighbourNeverDelaysTheOverlay(t *testing.T) {
 	}
 }
 
-func TestNeighbourIsDrawnDimmedWhenItsReadArrives(t *testing.T) {
+func TestNeighbourIsNumberedWhenItsReadArrives(t *testing.T) {
 	src := &fakeSource{captures: map[string]fixture.Capture{"w1:p1": fixture.Load(t, "cjk"), "w1:p2": fixture.Load(t, "shell")}}
 	term := newLiveTerminal(77, 18)
 	done := runLive(t, src, &fakeClipboard{}, term, twoPanes, session.ModeLine)
 	var g *render.Grid
 	for g = term.next(t); !strings.Contains(g.RowText(0), "git status"); g = term.next(t) {
 	}
-	// The neighbour's grid starts at column 40 of the overlay, and is dim.
-	if c := g.Cell(0, 40); c.Text != "u" || c.Role != render.Dim {
-		t.Errorf("neighbour cell %+v", c)
+	// The neighbour's grid starts at column 40 of the overlay. Its rows
+	// are drawn like the Target's, Line Numbers after its Pane Label "n"
+	// over the first cells ("user..." under "n16").
+	if c := g.Cell(0, 40); c.Text != "n" || c.Role != render.LineNumber {
+		t.Errorf("neighbour label cell %+v", c)
+	}
+	if c := g.Cell(0, 43); c.Text != "r" || c.Role != render.Text {
+		t.Errorf("neighbour text cell %+v", c)
 	}
 	close(term.input)
 	wait(t, done)

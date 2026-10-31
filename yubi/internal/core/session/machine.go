@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -178,6 +179,9 @@ func (m *Machine) Key(k keys.Key) []Action {
 		return m.commit(false, false)
 	case bound(m.settings.Joined, k):
 		return m.commit(true, false)
+	case k.Mod == 0 && k.Code >= 'a' && k.Code <= 'z' && m.labelAllowed():
+		// A Pane Label, unless it is a commit key (checked above).
+		return m.edit(m.input + string(k.Code))
 	case k.Mod&keys.Alt != 0:
 		// Alt on any commit key adds the paste.
 		k.Mod &^= keys.Alt
@@ -202,6 +206,13 @@ func bound(ks []keys.Key, k keys.Key) bool {
 	return false
 }
 
+// labelAllowed reports whether a letter typed now is taken as a Pane
+// Label: only where an item starts, and only when the tab has Neighbour
+// Panes. Elsewhere letters are ignored, as with a single pane.
+func (m *Machine) labelAllowed() bool {
+	return len(m.panes) > 1 && (m.input == "" || strings.HasSuffix(m.input, ","))
+}
+
 // edit replaces the Line Mode input; any shown error goes away.
 func (m *Machine) edit(input string) []Action {
 	m.input = input
@@ -209,26 +220,26 @@ func (m *Machine) edit(input string) []Action {
 	return []Action{Redraw{}}
 }
 
-// commit validates the whole input and copies the selected rows, as one
-// line when joined, or shows why it cannot; paste pastes the text into the
-// Target Pane too. Empty input is a no-op.
+// commit validates the whole input and copies the selected rows of the
+// pane it names, as one line when joined, or shows why it cannot; paste
+// pastes the text into the Target Pane too, whichever pane it came from.
+// Empty input is a no-op.
 func (m *Machine) commit(joined, paste bool) []Action {
 	if m.input == "" {
 		return nil
 	}
-	rows, err := m.selection()
+	p, rows, err := m.selection()
 	if err != nil {
 		m.err = err.Error()
 		return []Action{Redraw{}}
 	}
-	if m.blank(rows) {
+	if blank(p.scr, rows) {
 		m.err = "nothing to copy"
 		return []Action{Redraw{}}
 	}
-	scr := m.target().scr
-	text := line.Copy(scr, rows)
+	text := line.Copy(p.scr, rows)
 	if joined {
-		text = line.JoinedCopy(scr, rows, m.settings.Separator)
+		text = line.JoinedCopy(p.scr, rows, m.settings.Separator)
 	}
 	if paste {
 		return []Action{Paste{Text: text}}
@@ -236,38 +247,62 @@ func (m *Machine) commit(joined, paste bool) []Action {
 	return []Action{Copy{Text: text}}
 }
 
-// blank reports whether every one of rows is blank, so the selection has
-// no text to copy.
-func (m *Machine) blank(rows []int) bool {
+// blank reports whether every one of rows of scr is blank, so the
+// selection has no text to copy.
+func blank(scr screen.Screen, rows []int) bool {
 	for _, r := range rows {
-		if strings.TrimSpace(m.target().scr.Rows[r].Text()) != "" {
+		if strings.TrimSpace(scr.Rows[r].Text()) != "" {
 			return false
 		}
 	}
 	return true
 }
 
-func (m *Machine) selection() ([]int, error) {
-	ranges, err := line.Parse(m.input)
+// selection parses the input and returns the pane it names and the rows
+// it selects there. Input with no Pane Label names the Target Pane.
+func (m *Machine) selection() (*visiblePane, []int, error) {
+	label, ranges, err := line.ParsePane(m.input)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return m.target().num.Select(ranges)
+	p := m.paneByLabel(label)
+	if p == nil {
+		return nil, nil, line.ErrMalformed
+	}
+	if p.read == paneUnread {
+		return nil, nil, errors.New("pane " + label + " not read yet")
+	}
+	rows, err := p.num.Select(ranges)
+	return p, rows, err
+}
+
+// paneByLabel returns the Visible Pane with Pane Label label, the Target
+// Pane for "", or nil when no pane has it.
+func (m *Machine) paneByLabel(label string) *visiblePane {
+	for _, p := range m.panes {
+		if p.label == label {
+			return p
+		}
+	}
+	return nil
 }
 
 // drawPanes draws the pane frames as faint rules, then each Visible Pane
-// in its grid: the Neighbour Panes read so far, with their Hints in Hint
-// Mode when they have a Pane Label and dimmed otherwise, then the Target
-// Pane with the current mode's Hints or Line Numbers.
+// in its grid: the Neighbour Panes read so far, with the current mode's
+// Hints or Line Numbers when they have a Pane Label and dimmed otherwise,
+// then the Target Pane.
 func (m *Machine) drawPanes(g *render.Grid) {
 	for _, f := range m.place.Frames {
 		g.Box(f.X, f.Y, f.Width, f.Height, render.Rule)
 	}
 	for _, p := range m.panes[1:] {
-		if m.hint != nil && p.label != "" && p.read == paneRead {
-			m.hint.draw(g, p, m.place.H)
-		} else {
+		switch {
+		case p.label == "" || p.read != paneRead:
 			drawDimmed(g, p)
+		case m.hint != nil:
+			m.hint.draw(g, p, m.place.H)
+		default:
+			m.drawLines(g, p)
 		}
 	}
 	if m.hint != nil {
@@ -278,20 +313,23 @@ func (m *Machine) drawPanes(g *render.Grid) {
 }
 
 // drawLines draws the displayed rows of p in its grid with their Line
-// Numbers, the rows the input selects so far in reverse video.
+// Numbers, after p's Pane Label, and the rows the input selects so far in
+// p in reverse video.
 func (m *Machine) drawLines(g *render.Grid, p *visiblePane) {
 	t := p.grid
-	labelWidth := len(strconv.Itoa(p.num.Max()))
+	labelWidth := len(p.label) + len(strconv.Itoa(p.num.Max()))
 	shown := min(p.displayed(m.place.H), len(p.scr.Rows))
 	for y := 0; y < shown; y++ {
 		drawRow(g, t.Y+y, t.X, t.Width, p.scr.Rows[y])
 	}
-	for _, y := range p.num.Rows(line.Preview(m.input)) {
-		g.Select(t.Y+y, t.X, t.Width)
+	if label, ranges := line.PreviewPane(m.input); label == p.label {
+		for _, y := range p.num.Rows(ranges) {
+			g.Select(t.Y+y, t.X, t.Width)
+		}
 	}
 	for y := 0; y < shown; y++ {
 		if n := p.num.Of(y); n > 0 {
-			g.Label(t.Y+y, t.X, padLeft(strconv.Itoa(n), labelWidth), render.LineNumber)
+			g.Label(t.Y+y, t.X, padLeft(p.label+strconv.Itoa(n), labelWidth), render.LineNumber)
 		}
 	}
 }
