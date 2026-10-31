@@ -90,7 +90,7 @@ bracketed paste を有効にする zsh か bash のプロンプトで、テス�
 
 ## レイアウト
 
-- [ ] **分割**：タブを 3 つに分ける（`herdr pane split --current --direction right`、続いて新しいペインで `herdr pane split --current --direction down`）。そのうち 1 つにテスト画面を出してフォーカスする。`prefix+f` と `prefix+y`：Target Pane がもとの位置にそのまま描き直される。ほかのペインはもとの位置に表示され、ペインの間の罫線は薄い。画面のどこも動かない。ほかのペインの Hint と Line Number は [Neighbour Pane](#neighbour-pane) で確かめる。
+- [ ] **分割**：タブを 3 つに分ける（`herdr pane split --current --direction right`、続いて新しいペインで `herdr pane split --current --direction down`）。そのうち 1 つにテスト画面を出してフォーカスする。`prefix+f` と `prefix+y`：Target Pane がもとの位置にそのまま描き直される。Neighbour Pane はもとの位置に表示され、ペインの間の罫線は薄い。画面のどこも動かない。その Hint と Line Number は [Neighbour Pane](#neighbour-pane) で確かめる。
 - [ ] **分割・狭い**：狭い分割ペインに、右端で切れる URL を出す。`prefix+f`：その Hint は見えている最後のセルに右寄せされ、打つと URL 全体がコピーされる。
 - [ ] **ズーム中**：分割ペインをズームする（`herdr pane zoom --current --on`）。`prefix+f` と `prefix+y`：ズーム中のペインがもとの位置に全面の大きさで描き直され、ほかのペインも罫線も出ない。コピーもできる。オーバーレイが閉じたあとも、ペインはズームしたまま。バインドをもう一度押して閉じたとき（`prefix+f` を 2 回）と、`prefix+f`、`prefix+y`、Esc のあとも同じ。
 - [ ] **タブ全体を占める 1 つのペイン**：ステータス行が最後の行を覆い、右端の何列かが切れる（README の既知の制限を参照）。コピーはできる。
@@ -112,7 +112,7 @@ bracketed paste を有効にする zsh か bash のプロンプトで、テス�
 - [ ] `prefix+y` で左のペインの `first line` と `second line` を選び（例：`n4-3`）、**Alt-Ctrl-J**：`first line   second line` が 1 行で Target Pane（右下のペイン）のプロンプトに貼られ、実行されない。左のペインには貼られない。
 - [ ] `prefix+f` のあと `prefix+y`：どちらのモードでもラベルは同じ（左のペインが `n`、右上が `b`）。
 - [ ] **短いアルファベット**：yubi の `config.toml` に `hint.alphabet = "asd"` を書く。`prefix+f`：左のペインにラベル `d` が付き、右上のペインには Hint が出ず薄く表示されるだけで、Target Pane の Hint は `a` と `s` だけを使う。`config.toml` はもとに戻す。
-- [ ] **空の Target**：Target Pane（右下のペイン）で `clear` を実行する。`prefix+f`：`nothing to copy` は出ず、Hint Mode が開いてほかのペインに Hint が出る。`n` の Hint を打つ：クリップボードに左のペインのその Match が入っている。`prefix+y`：Line Mode が開く。`n1` を打って Enter：クリップボードに左のペインの一番下の行が入っている。
+- [ ] **空の Target**：Target Pane（右下のペイン）で `clear` を実行する。`prefix+f`：`nothing to copy` は出ず、Hint Mode が開いてNeighbour Pane に Hint が出る。`n` の Hint を打つ：クリップボードに左のペインのその Match が入っている。`prefix+y`：Line Mode が開く。`n1` を打って Enter：クリップボードに左のペインの一番下の行が入っている。
 - [ ] **どこにも何もない**：3 つのペインすべてで `clear` を実行し、右下のペインにフォーカスする。`prefix+f`：`nothing to copy` が普通の文字で出る。左のペインにただの単語をいくつか出す：`prefix+f` で `no matches` と出る。どちらもどのキーでも閉じる。
 - 読めない Neighbour Pane（空白で、ステータス行に `pane <label> unreadable`）は、本物の herdr ではわざと作れない。読み取りが失敗するのは、レイアウトを読んでからそのペインを読むまでのあいだにペインがなくなったときだけだからだ。これは自動テストとレンダリングのゴールデン `hint-split3-unreadable` で確かめている。
 
