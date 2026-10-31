@@ -13,7 +13,7 @@
 Required for every PR that changes anything other than Markdown docs: Go code, `go.mod`/`go.sum`, `herdr-plugin.toml`, build scripts, `.github/`, and so on.
 
 1. Open the PR as a draft. Push fixes to it freely while it is a draft, including fixes from a plugin's manual test.
-2. Before marking it ready, run claude-security on the branch: either a scan of the branch's changes or a full codebase scan. Pick the effort level to fit the size of the change.
+2. Before marking it ready, run claude-security on the branch: either a scan of the branch's changes or a full codebase scan. Pick the effort level to fit the size of the change. A scan starts only once the user's own request accepts its time and token cost, so ask for that acknowledgment while the user is present, together with any other questions.
 3. Fix each finding, or record why it is not fixed.
 4. Fill in the `## Security scan` section of the PR body: scan type, effort, scanned commit SHA, and the result (no findings, or each finding and how it was handled).
 5. If code is pushed after the scan, rescan before merge (a scan of only the new commits is enough) and update the section.
