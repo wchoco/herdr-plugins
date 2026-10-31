@@ -41,7 +41,7 @@ The number of a line on a Visible Pane's visible screen, counted upward from 1 a
 _Avoid_: row, index, line hint
 
 **Pane Label**:
-A letter, fixed when yubi opens, that names a Neighbour Pane; it starts every Hint and Line Number typed for that pane. The Target Pane has none.
+A letter, fixed when yubi opens, that names a Neighbour Pane; it starts every Hint and Line Number typed for that pane. The Target Pane has none. The Target Pane always keeps two letters of the Hint alphabet, so a Neighbour Pane past the last label that fits has no Pane Label: it is drawn faint, with no Hints or Line Numbers, and nothing on it can be copied.
 _Avoid_: pane hint, prefix, pane key
 
 **Hint Mode**:

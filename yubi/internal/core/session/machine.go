@@ -62,8 +62,8 @@ func NewLine(scr screen.Screen, w, h int) *Machine {
 	return newLine(scr, layout.Place(nil, w, h), config.Default())
 }
 
-// NewLineAt starts Line Mode on scr with the Target Pane and the other
-// panes placed by p.
+// NewLineAt starts Line Mode on scr with the Target Pane and the Neighbour
+// Panes placed by p.
 func NewLineAt(scr screen.Screen, p layout.Placement) *Machine {
 	return newLine(scr, p, config.Default())
 }

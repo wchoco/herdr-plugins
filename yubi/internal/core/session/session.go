@@ -99,7 +99,7 @@ type Config struct {
 	SettingsErr error
 
 	// Layout is the tab layout captured before the overlay opened; nil
-	// draws the Target Pane from the overlay's corner and no other panes.
+	// draws the Target Pane from the overlay's corner and no Neighbour Panes.
 	Layout *layout.Tab
 }
 

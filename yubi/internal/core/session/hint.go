@@ -25,8 +25,8 @@ func NewHint(scr screen.Screen, w, h int) *Machine {
 	return newHint(scr, layout.Place(nil, w, h), config.Default())
 }
 
-// NewHintAt starts Hint Mode on scr with the Target Pane and the other
-// panes placed by p. Rows clipped at the bottom get no Hints; Matches are
+// NewHintAt starts Hint Mode on scr with the Target Pane and the Neighbour
+// Panes placed by p. Rows clipped at the bottom get no Hints; Matches are
 // found on whole rows, so a Match clipped on the right still copies its
 // full text.
 func NewHintAt(scr screen.Screen, p layout.Placement) *Machine {

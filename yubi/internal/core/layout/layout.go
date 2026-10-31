@@ -1,4 +1,4 @@
-// Package layout places the Target Pane and the other panes of its tab
+// Package layout places the Target Pane and its Neighbour Panes
 // inside yubi's full-tab overlay, so that each is drawn exactly where it
 // is on screen.
 //

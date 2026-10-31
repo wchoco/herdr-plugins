@@ -11,4 +11,4 @@ When yubi copies from every Visible Pane, not only the Target Pane, each Neighbo
 
 - A Neighbour Pane's Hints are two or three letters long.
 - Identical Matches share a Hint only within one pane.
-- Line Mode uses the same Pane Labels in front of Line Numbers (`s3-5`). A Line Number with no label means the Target Pane, so existing input keeps its meaning.
+- Line Mode uses the same Pane Labels in front of Line Numbers (`n3-5`, with `n` the first label of the default alphabet). A Line Number with no label means the Target Pane, so existing input keeps its meaning.
