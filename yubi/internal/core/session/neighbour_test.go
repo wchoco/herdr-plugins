@@ -606,3 +606,39 @@ func TestNoEmptyStateWhileAnyPaneHasSomething(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestUnreadableNoteNeverCoversTheInputOrItsError(t *testing.T) {
+	// threePanes: w1:p3, labelled "b", could not be read. The note goes
+	// on the right; on a narrow overlay it has no room beside the input
+	// and the error after it, so it is left out.
+	tests := []struct {
+		name  string
+		mode  session.Mode
+		w     int
+		typed string
+		want  string
+	}{
+		{name: "line mode error", mode: session.ModeLine, w: 30, typed: "b", want: "LINE  b  pane b unreadable"},
+		{name: "hint mode error", mode: session.ModeHint, w: 30, typed: "b", want: "HINT    pane b unreadable"},
+		{name: "line mode input", mode: session.ModeLine, w: 20, typed: "12,3", want: "LINE  12,3"},
+		{name: "room for both", mode: session.ModeLine, w: 30, typed: "1", want: "LINE  1      pane b unreadable"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := layout.Place(threePanes, tt.w, 18)
+			var m *session.Machine
+			if tt.mode == session.ModeHint {
+				m = session.NewHintAt(parse(t, "links"), p)
+			} else {
+				m = session.NewLineAt(parse(t, "links"), p)
+			}
+			m.NeighbourUnreadable("w1:p3", errors.New("pane_not_found"))
+			for _, r := range tt.typed {
+				m.Key(keyOf(r))
+			}
+			if got := statusText(m.Frame()); got != tt.want {
+				t.Errorf("status %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

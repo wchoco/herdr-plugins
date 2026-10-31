@@ -387,25 +387,30 @@ func (m *Machine) Frame() *render.Grid {
 	} else {
 		g.Label(status, 0, text, render.Status)
 	}
+	end := len(text) // where the left-hand text ends
 	if errText != "" {
 		// The status text is ASCII in Line Mode, so its width is its length.
 		g.Label(status, len(text)+2, errText, render.Error)
+		end = len(text) + 2 + len(errText)
 	}
 	if m.message == "" && m.hint != nil {
 		// Hint Mode's status text is ASCII too.
 		x := len(text) + 2
 		if m.hint.paste {
 			g.Label(status, x, "paste", render.Paste)
-			x += len("paste") + 2
+			end = x + len("paste")
+			x = end + 2
 		}
 		if m.hint.err != "" {
 			g.Label(status, x, m.hint.err, render.Error)
+			end = x + len(m.hint.err)
 		}
 	}
 	if m.message == "" {
-		if note := m.unreadableNote(); note != "" {
-			// Right-aligned, clear of the input and any error after it.
-			g.Label(status, max(g.W-len(note), 0), note, render.Error)
+		// Right-aligned, and only where it leaves the text on the left
+		// whole, with a gap.
+		if note := m.unreadableNote(); note != "" && end+2+len(note) <= g.W {
+			g.Label(status, g.W-len(note), note, render.Error)
 		}
 	}
 	return g
